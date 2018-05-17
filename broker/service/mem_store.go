@@ -193,26 +193,51 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 	msgs := ms.DB[topic]
 	index := ms.DBIndex[topic]
 
-	newMsgs := make([]*proto.PubMsg, 0)
-	if count == 0 { // get all messages
-		for _, id := range index {
-			msg := msgs[id]
-			newMsgs = append(newMsgs, msg)
-		}
-
-		return newMsgs
-	}
-
-	// offset == []byte("0"), pull from the newest message
+	var newMsgs []*proto.PubMsg
 
 	if bytes.Compare(offset, MSG_NEWEST_OFFSET) == 0 {
-		if count > len(index) {
-			count = len(index)
+		if count == 0 { // get all messages
+			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+				// mq ,only get unacked msgs, from oldest
+				for _, id := range index {
+					msg := msgs[id]
+					if !msg.Acked {
+						newMsgs = append(newMsgs, msg)
+					}
+				}
+			} else {
+				//msg push/im, get all msgs,from newest
+				for i := len(index) - 1; i >= 0; i-- {
+					msg := msgs[index[i]]
+					newMsgs = append(newMsgs, msg)
+				}
+			}
+			return newMsgs
 		}
-		for _, id := range index[:count] {
-			msg := msgs[id]
-			newMsgs = append(newMsgs, msg)
+
+		c := 0
+		if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+			for _, id := range index {
+				if c >= count {
+					break
+				}
+				msg := msgs[id]
+				if !msg.Acked {
+					newMsgs = append(newMsgs, msg)
+					c++
+				}
+			}
+		} else {
+			for i := len(index) - 1; i >= 0; i-- {
+				if c >= count {
+					break
+				}
+				msg := msgs[index[i]]
+				newMsgs = append(newMsgs, msg)
+				c++
+			}
 		}
+
 	} else {
 		// find the position of the offset
 		pos := -1
@@ -222,19 +247,54 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 				pos = i
 			}
 		}
+
 		// can't find the message  or the message is the last one
 		// just return empty
 		if pos == -1 || pos == len(index)-1 {
 			return newMsgs
 		}
 
-		if count > len(index)-pos-1 {
-			count = len(index) - pos - 1
-		}
-
-		for _, id := range index[pos+1 : pos+count+1] {
-			msg := msgs[id]
-			newMsgs = append(newMsgs, msg)
+		if count == 0 {
+			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+				//mq pull messages after offset
+				for _, id := range index[pos+1:] {
+					msg := msgs[id]
+					if !msg.Acked {
+						newMsgs = append(newMsgs, msg)
+					}
+				}
+			} else {
+				// msg push/im pull messages before offset
+				for i := pos - 1; i >= 0; i-- {
+					msg := msgs[index[i]]
+					newMsgs = append(newMsgs, msg)
+				}
+			}
+		} else {
+			c := 0
+			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+				//mq pull messages after offset
+				for _, id := range index[pos+1:] {
+					if c >= count {
+						break
+					}
+					msg := msgs[id]
+					if !msg.Acked {
+						newMsgs = append(newMsgs, msg)
+						c++
+					}
+				}
+			} else {
+				// msg push/im pull messages before offset
+				for i := pos - 1; i >= 0; i-- {
+					if c >= count {
+						break
+					}
+					msg := msgs[index[i]]
+					newMsgs = append(newMsgs, msg)
+					c++
+				}
+			}
 		}
 	}
 
@@ -260,8 +320,8 @@ func (ms *MemStore) FlushAck() {
 		return
 	}
 
-	var newCache [][]byte
-	for _, msgid := range ms.ackCache {
+	temp := ms.ackCache
+	for _, msgid := range temp {
 		// lookup topic
 		ms.RLock()
 		t, ok := ms.DBIDIndex[string(msgid)]
@@ -270,36 +330,16 @@ func (ms *MemStore) FlushAck() {
 			// newCache = append(newCache, msgid)
 			continue
 		}
+
+		// set message status to acked
+		msg := ms.DB[t][string(msgid)]
 		ms.RUnlock()
-		if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
-			delete(ms.DB[t], string(msgid))
-			ms.RLock()
-			ids := ms.DBIndex[t]
-			ms.RUnlock()
-			for i, id := range ids {
-				if id == string(msgid) {
-					ms.Lock()
-					if i == len(ids)-1 {
-						ms.DBIndex[t] = nil
-					} else {
-						ms.DBIndex[t] = append(ids[:i], ids[i+1:]...)
-					}
-					ms.Unlock()
-				}
-			}
-			ms.Lock()
-			delete(ms.DBIDIndex, string(msgid))
-			ms.Unlock()
-		} else {
-			ms.RLock()
-			// set message status to acked
-			msg := ms.DB[t][string(msgid)]
-			ms.RUnlock()
-			msg.Acked = true
-		}
+		msg.Acked = true
 	}
 
-	ms.ackCache = newCache
+	ms.Lock()
+	ms.ackCache = ms.ackCache[len(temp):]
+	ms.Unlock()
 }
 func (ms *MemStore) Sub(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
 	t := string(topic)

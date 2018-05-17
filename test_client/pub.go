@@ -23,7 +23,7 @@ func pub(conns []net.Conn) {
 			n := 1
 			cache := make([]*proto.PubMsg, 0, 10000)
 			for {
-				if n > 10000000 {
+				if n > 1000000 {
 					break
 				}
 				// 27
@@ -34,7 +34,7 @@ func pub(conns []net.Conn) {
 					Type:    1,
 					QoS:     1,
 				}
-				if len(cache) < 10000 {
+				if len(cache) < 1000 {
 					cache = append(cache, m)
 				} else {
 					cache = append(cache, m)
