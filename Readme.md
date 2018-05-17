@@ -1,8 +1,12 @@
 # MeQ [mi:kju]
 
-A modern messaging platform for MQ、Message Push、IM、IoT etc,our goal is to be the best messaging platform in the world, like the iphone to others.
+A modern messaging platform for MQ、Message Push、IM、IoT etc.
 
-MeQ is written in pure go and standard library,nearly no messy dependencies. so you can easily deploy a standalone binary in linux、unix、macos、windows,  it's **cloud native**.
+Our goal is to be the best messaging platform in the world, like the iphone to others.It will have the easiest way for using, the extremely high performance, fitting for  diversity scenario, and the most beatiful interface for administrator ui.
+
+MeQ is written in pure go and standard library,nearly no messy dependencies. so you can easily deploy a standalone binary in linux、unix、macos、windows.
+
+
 
 Develop status
 ---
