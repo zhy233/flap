@@ -11,7 +11,6 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/chaingod/talent"
-	"github.com/meqio/proto"
 	"go.uber.org/zap"
 )
 
@@ -87,7 +86,7 @@ func (b *Broker) Start() {
 	b.timer.Init()
 
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6061", nil))
+		log.Println(http.ListenAndServe("localhost:6065", nil))
 	}()
 
 }
@@ -145,27 +144,19 @@ func (b *Broker) process(conn net.Conn, id uint64) {
 
 	L.Info("new client", zap.Uint64("conn_id", id), zap.String("ip", conn.RemoteAddr().String()))
 
-	cli := &client{
-		cid:     id,
-		conn:    conn,
-		bk:      b,
-		spusher: make(chan []*proto.Message, 10000),
-		gpusher: make(chan pushPacket, 10000),
-		subs:    make(map[string][]byte),
-	}
+	cli := initClient(id, conn, b)
 
 	b.Lock()
 	b.clients[id] = cli
 	b.Unlock()
 
 	err := cli.waitForConnect()
-
 	if err != nil {
 		fmt.Println("cant receive connect packet from client", err, zap.Uint64("cid", id))
 		return
 	}
 
-	go cli.writeLoop()
+	go cli.sendLoop()
 	err = cli.readLoop()
 	if err != nil {
 		if !talent.IsEOF(err) {

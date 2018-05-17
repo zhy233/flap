@@ -20,21 +20,36 @@ const (
 )
 
 type client struct {
-	cid     uint64 // do not exceeds max(int32)
-	conn    net.Conn
-	bk      *Broker
-	spusher chan []*proto.Message
-	gpusher chan pushPacket
-	closed  bool
-	subs    map[string][]byte
+	cid  uint64 // do not exceeds max(int32)
+	conn net.Conn
+	bk   *Broker
+
+	msgSender chan []*proto.PubMsg
+	ackSender chan [][]byte
+
+	subs map[string][]byte
+
+	closed bool
 }
 
+func initClient(cid uint64, conn net.Conn, bk *Broker) *client {
+	return &client{
+		cid:       cid,
+		conn:      conn,
+		bk:        bk,
+		msgSender: make(chan []*proto.PubMsg, 10000),
+		ackSender: make(chan [][]byte, 10000),
+		subs:      make(map[string][]byte),
+	}
+}
 func (c *client) readLoop() error {
 	defer func() {
 		c.closed = true
 		// unsub topics
 		for topic, group := range c.subs {
 			c.bk.store.Unsub([]byte(topic), group, c.cid, c.bk.cluster.peer.name)
+			//@todo
+			// aync + batch
 			submsg := SubMessage{CLUSTER_UNSUB, []byte(topic), group, c.cid}
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 		}
@@ -64,33 +79,23 @@ func (c *client) readLoop() error {
 		case proto.MSG_CONNECT:
 
 		case proto.MSG_PUB: // clients publish the message
-			ms, err := proto.UnpackMsgs(buf[1:])
+			ms, err := proto.UnpackPubMsgs(buf[1:])
 			if err != nil {
 				return err
 			}
-
+			// save the messages
 			c.bk.store.Put(ms)
-			// push to online clients of this node
-			// choose a topic group
-			select {
-			case c.gpusher <- pushPacket{
-				msgs: ms,
-			}:
-			default:
-			}
+			// push to online clients in all nodes
+			pushOnline(c.cid, c.bk, ms)
 
-			// ack the msgs
-			//@performance
-			// when extremly benchmark, this will make read too slow
-			// var toack [][]byte
-			// for _, m := range ms {
-			// 	if m.QoS == proto.QOS1 {
-			// 		toack = append(toack, m.ID)
-			// 	}
-			// }
-			// msg := proto.PackAck(toack, proto.MSG_PUBACK)
-			// c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
-			// c.conn.Write(msg)
+			// ack the msgs to client of sender
+			var acks [][]byte
+			for _, m := range ms {
+				if m.QoS == proto.QOS1 {
+					acks = append(acks, m.ID)
+				}
+			}
+			c.ackSender <- acks
 
 		case proto.MSG_SUB: // clients subscribe the specify topic
 			topic, group := proto.UnpackSub(buf[1:])
@@ -106,8 +111,7 @@ func (c *client) readLoop() error {
 			if bytes.Compare(topic[:2], MQ_PREFIX) == 0 {
 				// push out the stored messages
 				msgs := c.bk.store.Get(topic, 0, MSG_NEWEST_OFFSET)
-				fmt.Println(len(msgs))
-				c.spusher <- msgs
+				c.msgSender <- msgs
 			} else {
 				// push out the count of the stored messages
 				count := c.bk.store.GetCount(topic)
@@ -120,7 +124,10 @@ func (c *client) readLoop() error {
 			if topic == nil {
 				return errors.New("the unsub topic is null")
 			}
+
 			c.bk.store.Unsub(topic, group, c.cid, c.bk.cluster.peer.name)
+			//@todo
+			// aync + batch
 			submsg := SubMessage{CLUSTER_UNSUB, topic, group, c.cid}
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 
@@ -146,7 +153,7 @@ func (c *client) readLoop() error {
 				return errors.New("pull messages without subscribe the topic:" + string(topic))
 			}
 			msgs := c.bk.store.Get(topic, count, offset)
-			c.spusher <- msgs
+			c.msgSender <- msgs
 		case proto.MSG_PUB_TIMER, proto.MSG_PUB_RESTORE:
 			m := proto.UnpackTimerMsg(buf[1:])
 			now := time.Now().Unix()
@@ -161,35 +168,28 @@ func (c *client) readLoop() error {
 			}
 
 			// ack the timer msg
-			msg := proto.PackAck([][]byte{m.ID}, proto.MSG_PUB_TIMER_ACK)
-			c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
-			c.conn.Write(msg)
+			c.ackSender <- [][]byte{m.ID}
 		}
 	}
 
 	return nil
 }
 
-func (c *client) writeLoop() {
-	scache := make([]*proto.Message, 0, MAX_MESSAGE_BATCH)
-	gcache := make([]*proto.Message, 0, MAX_MESSAGE_BATCH)
+func (c *client) sendLoop() {
+	scache := make([]*proto.PubMsg, 0, MAX_MESSAGE_BATCH)
+	acache := make([][]byte, 0, 1000)
 	defer func() {
 		c.closed = true
 		c.conn.Close()
-
-		if len(gcache) != 0 {
-			pushOnline(c.cid, c.bk, gcache)
-		}
-
 		if err := recover(); err != nil {
+			L.Warn("panic happend in write loop", zap.Error(err.(error)), zap.Stack("stack"), zap.Uint64("cid", c.cid))
 			return
 		}
 	}()
 
-	//@todo if error occurs,return
-	for !c.closed || len(c.spusher) > 0 || len(c.gpusher) > 0 {
+	for !c.closed {
 		select {
-		case msgs := <-c.spusher:
+		case msgs := <-c.msgSender:
 			var err error
 			if len(msgs)+len(scache) < MAX_MESSAGE_BATCH {
 				scache = append(scache, msgs...)
@@ -209,23 +209,20 @@ func (c *client) writeLoop() {
 				L.Info("push one error", zap.Error(err))
 				return
 			}
-		case p := <-c.gpusher:
-			if len(p.msgs)+len(gcache) < MAX_MESSAGE_BATCH {
-				gcache = append(gcache, p.msgs...)
-			} else {
-				msgs := append(gcache, p.msgs...)
-				pushOnline(c.cid, c.bk, msgs)
-			}
-		case <-time.After(500 * time.Millisecond):
+		case acks := <-c.ackSender:
+			acache = append(acache, acks...)
+
+		case <-time.After(200 * time.Millisecond):
 			var err error
 			if len(scache) > 0 {
 				err = pushOne(c.conn, scache)
 				scache = scache[:0]
 			}
 
-			if len(gcache) > 0 {
-				pushOnline(c.cid, c.bk, gcache)
-				gcache = gcache[:0]
+			if len(acache) > 0 {
+				msg := proto.PackAck(acache, proto.MSG_PUBACK)
+				c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
+				c.conn.Write(msg)
 			}
 
 			if err != nil {

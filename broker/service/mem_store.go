@@ -11,25 +11,25 @@ import (
 )
 
 type MemStore struct {
-	In        chan *proto.Message
-	DB        map[string]map[string]*proto.Message
+	In        chan []*proto.PubMsg
+	DB        map[string]map[string]*proto.PubMsg
 	DBIndex   map[string][]string
 	DBIDIndex map[string]string
 
 	timerDB []*proto.TimerMsg
 
 	bk    *Broker
-	cache []*proto.Message
+	cache []*proto.PubMsg
 
 	ackCache [][]byte
 
 	//cluster
 	send         mesh.Gossip
 	pn           mesh.PeerName
-	msgSyncCache []*proto.Message
+	msgSyncCache []*proto.PubMsg
 	ackSyncCache [][]byte
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 const (
@@ -37,7 +37,7 @@ const (
 	MaxMemFlushLength = 100
 
 	MaxSyncMsgLen = 1000
-	MaxSyncAckLen = 5000
+	MaxSyncAckLen = 1000
 )
 
 const (
@@ -46,28 +46,22 @@ const (
 )
 
 func (ms *MemStore) Init() {
-	ms.In = make(chan *proto.Message, MaxCacheLength)
-	ms.DB = make(map[string]map[string]*proto.Message)
+	ms.In = make(chan []*proto.PubMsg, MaxCacheLength)
+	ms.DB = make(map[string]map[string]*proto.PubMsg)
 	ms.DBIndex = make(map[string][]string)
 	ms.DBIDIndex = make(map[string]string)
-	ms.cache = make([]*proto.Message, 0)
-	ms.msgSyncCache = make([]*proto.Message, 0, 1000)
-	ms.ackSyncCache = make([][]byte, 0, 1000)
+	ms.cache = make([]*proto.PubMsg, 0, 10000)
+	ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
+	ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
 
 	go func() {
 		ms.bk.wg.Add(1)
 		defer ms.bk.wg.Done()
 		for ms.bk.running {
-			msg := <-ms.In
-			if msg == nil {
-				return
-			}
+			msgs := <-ms.In
 			ms.Lock()
-			ms.cache = append(ms.cache, msg)
+			ms.cache = append(ms.cache, msgs...)
 			ms.Unlock()
-			if len(ms.cache) >= MaxMemFlushLength {
-				ms.Flush()
-			}
 		}
 	}()
 
@@ -76,7 +70,7 @@ func (ms *MemStore) Init() {
 		defer ms.bk.wg.Done()
 
 		for ms.bk.running {
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			ms.Flush()
 		}
 	}()
@@ -86,30 +80,32 @@ func (ms *MemStore) Init() {
 		defer ms.bk.wg.Done()
 
 		for ms.bk.running {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			ms.FlushAck()
 		}
 	}()
 
 	go func() {
-		ackTimer := time.NewTicker(100 * time.Millisecond).C
-		msgTimer := time.NewTicker(100 * time.Millisecond).C
+		ackTimer := time.NewTicker(200 * time.Millisecond).C
+		msgTimer := time.NewTicker(200 * time.Millisecond).C
 		for {
 			select {
 			case <-ackTimer: // sync acks
 				if len(ms.ackSyncCache) > 0 {
 					ms.Lock()
 					m := proto.PackAck(ms.ackSyncCache, MEM_MSG_ACK)
-					ms.ackSyncCache = ms.ackSyncCache[:0]
+					ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))
 				}
 			case <-msgTimer: // sync msgs
 				if len(ms.msgSyncCache) > 0 {
+
 					ms.Lock()
-					m := proto.PackMsgs(ms.msgSyncCache, MEM_MSG_ADD)
-					ms.msgSyncCache = ms.msgSyncCache[:0]
+					m := proto.PackPubMsgs(ms.msgSyncCache, MEM_MSG_ADD)
+					ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
+
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))
@@ -123,20 +119,26 @@ func (ms *MemStore) Close() {
 	close(ms.In)
 }
 
-func (ms *MemStore) Put(msgs []*proto.Message) {
+func (ms *MemStore) Put(msgs []*proto.PubMsg) {
 	if len(msgs) == 0 {
 		return
 	}
+
+	var nmsgs []*proto.PubMsg
 	for _, msg := range msgs {
 		if msg.QoS == proto.QOS1 {
 			// qos 1 need to be persistent
-			ms.In <- msg
+			nmsgs = append(nmsgs, msg)
 		}
 	}
 
-	ms.Lock()
-	ms.msgSyncCache = append(ms.msgSyncCache, msgs...)
-	ms.Unlock()
+	if len(nmsgs) > 0 {
+		ms.In <- nmsgs
+
+		ms.Lock()
+		ms.msgSyncCache = append(ms.msgSyncCache, msgs...)
+		ms.Unlock()
+	}
 }
 
 func (ms *MemStore) ACK(msgids [][]byte) {
@@ -153,27 +155,32 @@ func (ms *MemStore) Flush() {
 	if len(ms.cache) == 0 {
 		return
 	}
-	ms.Lock()
-	defer ms.Unlock()
+
 	for _, msg := range ms.cache {
+		ms.RLock()
 		if _, ok := ms.DBIDIndex[string(msg.ID)]; ok {
+			ms.RUnlock()
 			continue
 		}
+		ms.RUnlock()
 
 		t := string(msg.Topic)
+		ms.Lock()
 		_, ok := ms.DB[t]
 		if !ok {
-			ms.DB[t] = make(map[string]*proto.Message)
+			ms.DB[t] = make(map[string]*proto.PubMsg)
 		}
 
 		ms.DB[t][string(msg.ID)] = msg
 		ms.DBIndex[t] = append(ms.DBIndex[t], string(msg.ID))
 		ms.DBIDIndex[string(msg.ID)] = t
+		ms.Unlock()
 	}
+
 	ms.cache = ms.cache[:0]
 }
 
-func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.Message {
+func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 	topic := string(t)
 
 	ms.Lock()
@@ -181,7 +188,7 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.Message {
 	msgs := ms.DB[topic]
 	index := ms.DBIndex[topic]
 
-	newMsgs := make([]*proto.Message, 0)
+	newMsgs := make([]*proto.PubMsg, 0)
 	if count == 0 { // get all messages
 		for _, id := range index {
 			msg := msgs[id]
@@ -244,8 +251,6 @@ func (ms *MemStore) GetCount(topic []byte) int {
 }
 
 func (ms *MemStore) FlushAck() {
-	ms.Lock()
-	defer ms.Unlock()
 
 	if len(ms.ackCache) == 0 {
 		return
@@ -254,27 +259,38 @@ func (ms *MemStore) FlushAck() {
 	var newCache [][]byte
 	for _, msgid := range ms.ackCache {
 		// lookup topic
+		ms.RLock()
 		t, ok := ms.DBIDIndex[string(msgid)]
 		if !ok {
-			newCache = append(newCache, msgid)
+			ms.RUnlock()
+			// newCache = append(newCache, msgid)
 			continue
 		}
+		ms.RUnlock()
 		if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
 			delete(ms.DB[t], string(msgid))
+			ms.RLock()
 			ids := ms.DBIndex[t]
+			ms.RUnlock()
 			for i, id := range ids {
 				if id == string(msgid) {
+					ms.Lock()
 					if i == len(ids)-1 {
 						ms.DBIndex[t] = nil
 					} else {
 						ms.DBIndex[t] = append(ids[:i], ids[i+1:]...)
 					}
+					ms.Unlock()
 				}
 			}
+			ms.Lock()
 			delete(ms.DBIDIndex, string(msgid))
+			ms.Unlock()
 		} else {
+			ms.RLock()
 			// set message status to acked
 			msg := ms.DB[t][string(msgid)]
+			ms.RUnlock()
 			msg.Acked = true
 		}
 	}
@@ -355,15 +371,15 @@ func (ms *MemStore) PutTimerMsg(m *proto.TimerMsg) {
 	ms.Unlock()
 }
 
-func (ms *MemStore) GetTimerMsg() []*proto.Message {
+func (ms *MemStore) GetTimerMsg() []*proto.PubMsg {
 	now := time.Now().Unix()
 
 	var newM []*proto.TimerMsg
-	var msgs []*proto.Message
+	var msgs []*proto.PubMsg
 	ms.Lock()
 	for _, m := range ms.timerDB {
 		if m.Trigger <= now {
-			msgs = append(msgs, &proto.Message{m.ID, m.Topic, m.Payload, false, proto.TIMER_MSG, 1})
+			msgs = append(msgs, &proto.PubMsg{m.ID, m.Topic, m.Payload, false, proto.TIMER_MSG, 1})
 		} else {
 			newM = append(newM, m)
 		}
@@ -379,7 +395,7 @@ func (ms *MemStore) GetTimerMsg() []*proto.Message {
 /* -------------------------- cluster part -----------------------------------------------*/
 // Return a copy of our complete state.
 func (ms *MemStore) Gossip() (complete mesh.GossipData) {
-	return ms.bk.subs
+	return
 }
 
 // Merge the gossiped data represented by buf into our state.
@@ -394,10 +410,8 @@ func (ms *MemStore) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received m
 	command := buf[4]
 	switch command {
 	case MEM_MSG_ADD:
-		msgs, _ := proto.UnpackMsgs(buf[5:])
-		for _, msg := range msgs {
-			ms.In <- msg
-		}
+		msgs, _ := proto.UnpackPubMsgs(buf[5:])
+		ms.In <- msgs
 
 	case MEM_MSG_ACK:
 		msgids := proto.UnpackAck(buf[5:])

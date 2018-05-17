@@ -21,24 +21,24 @@ func pub(conns []net.Conn) {
 		go func(i int, conn net.Conn) {
 			defer wg.Done()
 			n := 1
-			cache := make([]*proto.Message, 0, 1000)
+			cache := make([]*proto.PubMsg, 0, 10000)
 			for {
-				if n > 200000 {
+				if n > 10000000 {
 					break
 				}
 				// 27
-				m := &proto.Message{
+				m := &proto.PubMsg{
 					ID:      []byte(fmt.Sprintf("%d-%010d", i, n)),
 					Topic:   []byte(topic),
 					Payload: []byte("123456789"),
 					Type:    1,
 					QoS:     1,
 				}
-				if len(cache) < 500 {
+				if len(cache) < 10000 {
 					cache = append(cache, m)
 				} else {
 					cache = append(cache, m)
-					msg := proto.PackMsgs(cache, proto.MSG_PUB)
+					msg := proto.PackPubMsgs(cache, proto.MSG_PUB)
 					_, err := conn.Write(msg)
 					if err != nil {
 						panic(err)

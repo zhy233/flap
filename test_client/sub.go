@@ -42,10 +42,10 @@ func sub(conn net.Conn) {
 		case proto.MSG_PONG:
 
 		case proto.MSG_PUB:
-			ms, _ := proto.UnpackMsgs(msg[1:])
+			ms, _ := proto.UnpackPubMsgs(msg[1:])
 			var unacked [][]byte
 			for _, m := range ms {
-				if m.ID[len(m.ID)-1] == 48 {
+				if m.ID[len(m.ID)-1] == 48 && m.ID[len(m.ID)-2] == 48 && m.ID[len(m.ID)-3] == 48 && m.ID[len(m.ID)-4] == 48 {
 					fmt.Println("收到消息：", string(m.ID), m.QoS, m.Acked)
 				}
 				// fmt.Println(string(m.ID))

@@ -9,10 +9,10 @@ type Storage interface {
 	Init()
 	Close()
 
-	Put([]*proto.Message)
+	Put([]*proto.PubMsg)
 	ACK([][]byte)
 
-	Get([]byte, int, []byte) []*proto.Message
+	Get([]byte, int, []byte) []*proto.PubMsg
 	GetCount([]byte) int
 
 	Flush()
@@ -21,5 +21,5 @@ type Storage interface {
 	Unsub([]byte, []byte, uint64, mesh.PeerName)
 
 	PutTimerMsg(*proto.TimerMsg)
-	GetTimerMsg() []*proto.Message
+	GetTimerMsg() []*proto.PubMsg
 }

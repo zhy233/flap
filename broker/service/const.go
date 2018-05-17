@@ -10,7 +10,7 @@ const (
 
 	MAX_IDLE_TIME = 60
 
-	WRITE_DEADLINE = 1 * time.Second
+	WRITE_DEADLINE = 2 * time.Second
 
 	MAX_MESSAGE_BATCH      = 200
 	MAX_MESSAGE_PULL_COUNT = 200

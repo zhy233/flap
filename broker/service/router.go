@@ -44,19 +44,21 @@ func (r *Router) recvRoute(buf []byte) {
 	c, ok := r.bk.clients[cid]
 	r.RUnlock()
 	if ok {
-		c.spusher <- msgs
+		c.msgSender <- msgs
 	}
 }
-func (r *Router) route(outer map[Sess][]*proto.Message) {
+func (r *Router) route(outer map[Sess][]*proto.PubMsg) {
+	//@todo
+	// async + batch,current implementation will block the client's read loop
 	for s, ms := range outer {
 		m := proto.PackRouteMsgs(ms, ROUTER_MSG_ADD, s.Cid)
 		r.bk.cluster.peer.send.GossipUnicast(s.Addr, m)
 	}
 }
 
-func (r *Router) FindRoutes(msgs []*proto.Message) (map[Sess][]*proto.Message, map[Sess][]*proto.Message) {
-	local := make(map[Sess][]*proto.Message)
-	outer := make(map[Sess][]*proto.Message)
+func (r *Router) FindRoutes(msgs []*proto.PubMsg) (map[Sess][]*proto.PubMsg, map[Sess][]*proto.PubMsg) {
+	local := make(map[Sess][]*proto.PubMsg)
+	outer := make(map[Sess][]*proto.PubMsg)
 
 	for _, msg := range msgs {
 		t := string(msg.Topic)
