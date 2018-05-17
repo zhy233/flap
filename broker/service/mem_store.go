@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chaingod/talent"
+
 	"github.com/weaveworks/mesh"
 
 	"github.com/meqio/proto"
@@ -50,7 +52,7 @@ func (ms *MemStore) Init() {
 	ms.DB = make(map[string]map[string]*proto.PubMsg)
 	ms.DBIndex = make(map[string][]string)
 	ms.DBIDIndex = make(map[string]string)
-	ms.cache = make([]*proto.PubMsg, 0, 10000)
+	ms.cache = make([]*proto.PubMsg, 0, MaxCacheLength)
 	ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
 	ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
 
@@ -70,7 +72,7 @@ func (ms *MemStore) Init() {
 		defer ms.bk.wg.Done()
 
 		for ms.bk.running {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 			ms.Flush()
 		}
 	}()
@@ -101,11 +103,9 @@ func (ms *MemStore) Init() {
 				}
 			case <-msgTimer: // sync msgs
 				if len(ms.msgSyncCache) > 0 {
-
 					ms.Lock()
 					m := proto.PackPubMsgs(ms.msgSyncCache, MEM_MSG_ADD)
 					ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
-
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))
@@ -120,64 +120,69 @@ func (ms *MemStore) Close() {
 }
 
 func (ms *MemStore) Put(msgs []*proto.PubMsg) {
-	if len(msgs) == 0 {
-		return
-	}
-
-	var nmsgs []*proto.PubMsg
-	for _, msg := range msgs {
-		if msg.QoS == proto.QOS1 {
-			// qos 1 need to be persistent
-			nmsgs = append(nmsgs, msg)
+	if len(msgs) > 0 {
+		var nmsgs []*proto.PubMsg
+		for _, msg := range msgs {
+			if msg.QoS == proto.QOS1 {
+				// qos 1 need to be persistent
+				nmsgs = append(nmsgs, msg)
+			}
 		}
-	}
 
-	if len(nmsgs) > 0 {
-		ms.In <- nmsgs
+		if len(nmsgs) > 0 {
+			ms.In <- nmsgs
 
-		ms.Lock()
-		ms.msgSyncCache = append(ms.msgSyncCache, msgs...)
-		ms.Unlock()
+			ms.Lock()
+			ms.msgSyncCache = append(ms.msgSyncCache, msgs...)
+			ms.Unlock()
+		}
 	}
 }
 
 func (ms *MemStore) ACK(msgids [][]byte) {
-	ms.Lock()
-	for _, msgid := range msgids {
-		ms.ackCache = append(ms.ackCache, msgid)
+	if len(msgids) > 0 {
+		ms.Lock()
+		ms.ackCache = append(ms.ackCache, msgids...)
+		ms.ackSyncCache = append(ms.ackSyncCache, msgids...)
+		ms.Unlock()
 	}
-
-	ms.ackSyncCache = append(ms.ackSyncCache, msgids...)
-	ms.Unlock()
 }
 
 func (ms *MemStore) Flush() {
-	if len(ms.cache) == 0 {
-		return
-	}
-
-	for _, msg := range ms.cache {
-		ms.RLock()
-		if _, ok := ms.DBIDIndex[string(msg.ID)]; ok {
+	temp := ms.cache
+	if len(temp) > 0 {
+		for _, msg := range temp {
+			ms.RLock()
+			if _, ok := ms.DBIDIndex[talent.Bytes2String(msg.ID)]; ok {
+				ms.RUnlock()
+				continue
+			}
 			ms.RUnlock()
-			continue
-		}
-		ms.RUnlock()
 
-		t := string(msg.Topic)
+			t := talent.Bytes2String(msg.Topic)
+			ms.Lock()
+			_, ok := ms.DB[t]
+			if !ok {
+				ms.DB[t] = make(map[string]*proto.PubMsg)
+			}
+
+			//@performance
+			ms.DB[t][talent.Bytes2String(msg.ID)] = msg
+			ms.DBIndex[t] = append(ms.DBIndex[t], talent.Bytes2String(msg.ID))
+			ms.DBIDIndex[talent.Bytes2String(msg.ID)] = t
+			ms.Unlock()
+		}
 		ms.Lock()
-		_, ok := ms.DB[t]
-		if !ok {
-			ms.DB[t] = make(map[string]*proto.PubMsg)
+		ms.cache = ms.cache[len(temp):]
+		ms.Unlock()
+	} else {
+		// rejust the cache cap length
+		ms.Lock()
+		if len(ms.cache) == 0 && cap(ms.cache) != MaxCacheLength {
+			ms.cache = make([]*proto.PubMsg, 0, MaxCacheLength)
 		}
-
-		ms.DB[t][string(msg.ID)] = msg
-		ms.DBIndex[t] = append(ms.DBIndex[t], string(msg.ID))
-		ms.DBIDIndex[string(msg.ID)] = t
 		ms.Unlock()
 	}
-
-	ms.cache = ms.cache[:0]
 }
 
 func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
@@ -251,7 +256,6 @@ func (ms *MemStore) GetCount(topic []byte) int {
 }
 
 func (ms *MemStore) FlushAck() {
-
 	if len(ms.ackCache) == 0 {
 		return
 	}
