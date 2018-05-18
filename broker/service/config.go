@@ -28,6 +28,10 @@ type Config struct {
 		Port      string
 		SeedPeers []string
 	}
+
+	Admin struct {
+		Addr string
+	}
 }
 
 var Conf = &Config{}

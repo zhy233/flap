@@ -1,6 +1,9 @@
 package service
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 const (
 	// ACCEPT_MIN_SLEEP is the minimum acceptable sleep times on temporary errors.
@@ -17,14 +20,8 @@ const (
 )
 
 var (
-	MSG_PUSH_PREFIX = []byte("mp")
-	IM_PREFIX       = []byte("im")
-	MQ_PREFIX       = []byte("mq")
-
-	MSG_NEWEST_OFFSET = []byte("0")
-)
-
-var (
 	CLUSTER_SUB   = 1
 	CLUSTER_UNSUB = 2
 )
+
+var glock = &sync.RWMutex{}

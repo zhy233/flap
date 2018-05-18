@@ -2,10 +2,13 @@ package service
 
 import (
 	"bytes"
+	"encoding/gob"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/chaingod/talent"
+	"go.uber.org/zap"
 
 	"github.com/weaveworks/mesh"
 
@@ -31,6 +34,7 @@ type MemStore struct {
 	msgSyncCache []*proto.PubMsg
 	ackSyncCache [][]byte
 
+	topicProps TopicProps
 	sync.RWMutex
 }
 
@@ -55,6 +59,11 @@ func (ms *MemStore) Init() {
 	ms.cache = make([]*proto.PubMsg, 0, MaxCacheLength)
 	ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
 	ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
+	ms.topicProps = make(TopicProps)
+	// message queue like topic
+	// ms.topicProps["test"] = proto.TopicProp{true, true, proto.TopicPropAckDel, proto.TopicPropGetFilterAck}
+	// message push topic
+	ms.topicProps["test"] = proto.TopicProp{false, false, proto.TopicPropAckDel, proto.TopicPropGetAll}
 
 	go func() {
 		ms.bk.wg.Add(1)
@@ -185,7 +194,7 @@ func (ms *MemStore) Flush() {
 	}
 }
 
-func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
+func (ms *MemStore) Get(t []byte, count int, offset []byte, prop proto.TopicProp) []*proto.PubMsg {
 	topic := string(t)
 
 	ms.Lock()
@@ -195,13 +204,17 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 
 	var newMsgs []*proto.PubMsg
 
-	if bytes.Compare(offset, MSG_NEWEST_OFFSET) == 0 {
+	if bytes.Compare(offset, proto.MSG_NEWEST_OFFSET) == 0 {
 		if count == 0 { // get all messages
-			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+			if prop.GetMsgFromOldestToNewest {
 				// mq ,only get unacked msgs, from oldest
 				for _, id := range index {
 					msg := msgs[id]
-					if !msg.Acked {
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+						}
+					} else {
 						newMsgs = append(newMsgs, msg)
 					}
 				}
@@ -209,20 +222,32 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 				//msg push/im, get all msgs,from newest
 				for i := len(index) - 1; i >= 0; i-- {
 					msg := msgs[index[i]]
-					newMsgs = append(newMsgs, msg)
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+						}
+					} else {
+						newMsgs = append(newMsgs, msg)
+					}
+
 				}
 			}
 			return newMsgs
 		}
 
 		c := 0
-		if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+		if prop.GetMsgFromOldestToNewest {
 			for _, id := range index {
 				if c >= count {
 					break
 				}
 				msg := msgs[id]
-				if !msg.Acked {
+				if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+					if !msg.Acked {
+						newMsgs = append(newMsgs, msg)
+						c++
+					}
+				} else {
 					newMsgs = append(newMsgs, msg)
 					c++
 				}
@@ -233,8 +258,15 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 					break
 				}
 				msg := msgs[index[i]]
-				newMsgs = append(newMsgs, msg)
-				c++
+				if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+					if !msg.Acked {
+						newMsgs = append(newMsgs, msg)
+						c++
+					}
+				} else {
+					newMsgs = append(newMsgs, msg)
+					c++
+				}
 			}
 		}
 
@@ -255,11 +287,15 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 		}
 
 		if count == 0 {
-			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+			if prop.GetMsgFromOldestToNewest {
 				//mq pull messages after offset
 				for _, id := range index[pos+1:] {
 					msg := msgs[id]
-					if !msg.Acked {
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+						}
+					} else {
 						newMsgs = append(newMsgs, msg)
 					}
 				}
@@ -267,22 +303,34 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 				// msg push/im pull messages before offset
 				for i := pos - 1; i >= 0; i-- {
 					msg := msgs[index[i]]
-					newMsgs = append(newMsgs, msg)
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+						}
+					} else {
+						newMsgs = append(newMsgs, msg)
+					}
 				}
 			}
 		} else {
 			c := 0
-			if bytes.Compare([]byte(t)[:2], MQ_PREFIX) == 0 {
+			if prop.GetMsgFromOldestToNewest {
 				//mq pull messages after offset
 				for _, id := range index[pos+1:] {
 					if c >= count {
 						break
 					}
 					msg := msgs[id]
-					if !msg.Acked {
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+							c++
+						}
+					} else {
 						newMsgs = append(newMsgs, msg)
 						c++
 					}
+
 				}
 			} else {
 				// msg push/im pull messages before offset
@@ -291,8 +339,15 @@ func (ms *MemStore) Get(t []byte, count int, offset []byte) []*proto.PubMsg {
 						break
 					}
 					msg := msgs[index[i]]
-					newMsgs = append(newMsgs, msg)
-					c++
+					if prop.GetMsgStrategy == proto.TopicPropGetFilterAck {
+						if !msg.Acked {
+							newMsgs = append(newMsgs, msg)
+							c++
+						}
+					} else {
+						newMsgs = append(newMsgs, msg)
+						c++
+					}
 				}
 			}
 		}
@@ -436,15 +491,48 @@ func (ms *MemStore) GetTimerMsg() []*proto.PubMsg {
 	return msgs
 }
 
+func (ms *MemStore) SetTopicProp(topic []byte, prop proto.TopicProp) error {
+	t := string(topic)
+
+	ms.Lock()
+	defer ms.Unlock()
+
+	_, ok := ms.topicProps[t]
+	if ok {
+		return errors.New("topic already exist")
+	}
+	ms.topicProps[t] = prop
+
+	return nil
+}
+
+func (ms *MemStore) GetTopicProp(topic []byte) (prop proto.TopicProp, ok bool) {
+	t := string(topic)
+
+	ms.RLock()
+	defer ms.RUnlock()
+
+	prop, ok = ms.topicProps[t]
+	return
+}
+
 /* -------------------------- cluster part -----------------------------------------------*/
 // Return a copy of our complete state.
 func (ms *MemStore) Gossip() (complete mesh.GossipData) {
-	return
+	return ms.topicProps
 }
 
 // Merge the gossiped data represented by buf into our state.
 // Return the state information that was modified.
 func (ms *MemStore) OnGossip(buf []byte) (delta mesh.GossipData, err error) {
+	var set TopicProps
+	err = gob.NewDecoder(bytes.NewReader(buf)).Decode(&set)
+	if err != nil {
+		L.Info("on gossip decode error", zap.Error(err))
+		return
+	}
+
+	ms.topicProps.Merge(set)
 	return
 }
 
@@ -484,5 +572,31 @@ func (mm MemMsg) Encode() [][]byte {
 }
 
 func (mm MemMsg) Merge(new mesh.GossipData) (complete mesh.GossipData) {
+	return
+}
+
+// topic properties
+type TopicProps map[string]proto.TopicProp
+
+func (mm TopicProps) Encode() [][]byte {
+	glock.Lock()
+	defer glock.Unlock()
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(mm); err != nil {
+		panic(err)
+	}
+	return [][]byte{buf.Bytes()}
+}
+
+func (mm TopicProps) Merge(new mesh.GossipData) (complete mesh.GossipData) {
+	glock.Lock()
+	defer glock.Unlock()
+	for t, p := range new.(TopicProps) {
+		_, ok := mm[t]
+		if !ok {
+			mm[t] = p
+		}
+	}
 	return
 }

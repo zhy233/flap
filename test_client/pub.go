@@ -23,7 +23,7 @@ func pub(conns []net.Conn) {
 			n := 1
 			cache := make([]*proto.PubMsg, 0, 10000)
 			for {
-				if n > 1000000 {
+				if n > 10000 {
 					break
 				}
 				// 27

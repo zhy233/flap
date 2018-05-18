@@ -85,6 +85,10 @@ func (b *Broker) Start() {
 	}
 	b.timer.Init()
 
+	// init admin
+	ad := &admin{}
+	go ad.Init(b)
+
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6065", nil))
 	}()

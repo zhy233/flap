@@ -10,7 +10,7 @@ import (
 	"github.com/meqio/proto"
 )
 
-var topic = "mq-test"
+var topic = "test"
 var host = "localhost:"
 
 var op = flag.String("op", "", "")

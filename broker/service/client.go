@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -83,6 +82,9 @@ func (c *client) readLoop() error {
 			if err != nil {
 				return err
 			}
+			//@todo
+			//Check to see if the topic exists.
+
 			// save the messages
 			c.bk.store.Put(ms)
 			// push to online clients in all nodes
@@ -99,8 +101,14 @@ func (c *client) readLoop() error {
 
 		case proto.MSG_SUB: // clients subscribe the specify topic
 			topic, group := proto.UnpackSub(buf[1:])
-			if topic == nil || len(group) == 0 {
+			if (topic == nil) && (len(group) == 0) {
 				return errors.New("the sub topic is null")
+			}
+			//Check to see if the topic created.
+			prop, ok := c.bk.store.GetTopicProp(topic)
+			if !ok {
+				L.Info("sub topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
+				return nil
 			}
 
 			c.bk.store.Sub(topic, group, c.cid, c.bk.cluster.peer.name)
@@ -108,10 +116,12 @@ func (c *client) readLoop() error {
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 
 			c.subs[string(topic)] = group
-			if bytes.Compare(topic[:2], MQ_PREFIX) == 0 {
+			if prop.PushMsgWhenSub {
 				// push out the stored messages
-				msgs := c.bk.store.Get(topic, 0, MSG_NEWEST_OFFSET)
-				c.msgSender <- msgs
+				msgs := c.bk.store.Get(topic, 0, proto.MSG_NEWEST_OFFSET, prop)
+				if len(msgs) > 0 {
+					c.msgSender <- msgs
+				}
 			} else {
 				// push out the count of the stored messages
 				count := c.bk.store.GetCount(topic)
@@ -144,15 +154,25 @@ func (c *client) readLoop() error {
 
 		case proto.MSG_PULL: // client request to pulls some messages from the specify position
 			topic, count, offset := proto.UnPackPullMsg(buf[1:])
+			// pulling out the all messages is not allowed
 			if count > MAX_MESSAGE_PULL_COUNT || count <= 0 {
 				return fmt.Errorf("the pull count %d is larger than :%d or equal/smaller than 0", count, MAX_MESSAGE_PULL_COUNT)
 			}
+
+			//Check to see if the topic created and get the topic prop
+			prop, ok := c.bk.store.GetTopicProp(topic)
+			if !ok {
+				L.Info("pull topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
+				return nil
+			}
+
 			// check the topic is already subed
-			_, ok := c.subs[string(topic)]
+			_, ok = c.subs[string(topic)]
 			if !ok {
 				return errors.New("pull messages without subscribe the topic:" + string(topic))
 			}
-			msgs := c.bk.store.Get(topic, count, offset)
+
+			msgs := c.bk.store.Get(topic, count, offset, prop)
 			c.msgSender <- msgs
 		case proto.MSG_PUB_TIMER, proto.MSG_PUB_RESTORE:
 			m := proto.UnpackTimerMsg(buf[1:])

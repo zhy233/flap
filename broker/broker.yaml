@@ -17,3 +17,6 @@ cluster:
   port: "6002"
   seedpeers: 
     - ""
+
+admin:
+  addr: "localhost:7800"
