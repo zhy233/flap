@@ -144,30 +144,24 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	// 所有比target长的都应该收到
 	// target中的通配符'+'可以匹配任何tid
 	// 找到所有路线的最后一个node节点
-	//@todo '+' has not been implemented
-	lastNode := root
-	for _, tid := range tids[1:] {
-		// 任何一个node匹配不到，则认为完全无法匹配
-		st.RLock()
-		node, ok := lastNode.Children[tid]
-		st.RUnlock()
-		if !ok {
-			return nil, nil
-		}
-
-		lastNode = node
+	var lastNodes []*Node
+	if len(tids) == 1 {
+		lastNodes = append(lastNodes, root)
+	} else {
+		st.findLastNodes(root, tids[1:], &lastNodes)
 	}
 
 	// 找到lastNode的所有子节点
 	st.RLock()
-	st.findSesses(lastNode, &sesses)
+	for _, last := range lastNodes {
+		st.findSesses(last, &sesses)
+	}
 	st.RUnlock()
-
 	return sesses, nil
 }
 
 func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
-	tids, err := parseTopic(topic, false)
+	tids, err := parseTopic(topic, true)
 	if err != nil {
 		return nil, err
 	}
@@ -219,5 +213,29 @@ func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
 	}
 	for _, child := range n.Children {
 		st.findSesses(child, sesses)
+	}
+}
+
+func (st *SubTrie) findLastNodes(n *Node, tids []uint32, nodes *[]*Node) {
+	if len(tids) == 1 {
+		// 如果只剩一个节点，那就直接查找，不管能否找到，都返回
+		node, ok := n.Children[tids[0]]
+		if ok {
+			*nodes = append(*nodes, node)
+		}
+		return
+	}
+
+	tid := tids[0]
+	if tid != wildcard {
+		node, ok := n.Children[tid]
+		if !ok {
+			return
+		}
+		st.findLastNodes(node, tids[1:], nodes)
+	} else {
+		for _, node := range n.Children {
+			st.findLastNodes(node, tids[1:], nodes)
+		}
 	}
 }

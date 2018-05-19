@@ -8,7 +8,7 @@ import (
 	"github.com/meqio/proto"
 )
 
-func parseTopic(t []byte, isSub bool) ([]uint32, error) {
+func parseTopic(t []byte, exactly bool) ([]uint32, error) {
 	var tids []uint32
 	var err error
 
@@ -56,7 +56,7 @@ func parseTopic(t []byte, isSub bool) ([]uint32, error) {
 		return nil, errors.New("first byte cant be wildcard")
 	}
 
-	if isSub {
+	if exactly {
 		if len(tids) < 3 {
 			return nil, errors.New("topic invalid")
 		}
