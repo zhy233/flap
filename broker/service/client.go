@@ -15,7 +15,7 @@ import (
 // For controlling dynamic buffer sizes.
 const (
 	headerSize  = 4
-	maxBodySize = 65536
+	maxBodySize = 65536 * 16 // 1MB
 )
 
 type client struct {

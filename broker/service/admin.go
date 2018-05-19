@@ -51,6 +51,11 @@ func (ad *admin) createTopic(c echo.Context) error {
 		return c.String(200, "ack strategy invalid")
 	}
 
+	_, err = parseTopic([]byte(topic), true)
+	if err != nil {
+		return c.String(200, "topic invalid")
+	}
+
 	err = ad.bk.store.SetTopicProp([]byte(topic), proto.TopicProp{isPush, fromOldest, int8(ackStrategy), int8(getMsgStrategy)})
 	if err != nil {
 		return c.String(200, err.Error())

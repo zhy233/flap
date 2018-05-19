@@ -61,9 +61,9 @@ func (ms *MemStore) Init() {
 	ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
 	ms.topicProps = make(TopicProps)
 	// message queue like topic
-	// ms.topicProps["test"] = proto.TopicProp{true, true, proto.TopicPropAckDel, proto.TopicPropGetFilterAck}
+	// ms.topicProps["/test/mq"] = proto.TopicProp{true, true, proto.TopicPropAckDel, proto.TopicPropGetFilterAck}
 	// message push topic
-	ms.topicProps["test"] = proto.TopicProp{false, false, proto.TopicPropAckDel, proto.TopicPropGetAll}
+	ms.topicProps["/test/mp"] = proto.TopicProp{false, false, proto.TopicPropAckDel, proto.TopicPropGetAll}
 
 	go func() {
 		ms.bk.wg.Add(1)

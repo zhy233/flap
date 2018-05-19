@@ -14,10 +14,10 @@ V0.3.0 was released on 2018.5.13, V0.5.0 will be released before 2018.5.20
 
 Design Goals
 ------------
-- Extremly Performanced: Zero allocation
+- Extremly Performanced: Zero allocation、Low Latency
 - HA and Scale out
-- High Performance、Low Latency
 - support Message Push 、MQ、IM、IoT scenario
+- Topic fuzzing match
 - Message trace by **Opentracing**
 - Multi persistent engine supported
 - Ops friendly
