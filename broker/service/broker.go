@@ -95,22 +95,6 @@ func (b *Broker) Start() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6070", nil))
 	}()
-	// test subtrie
-	// go func() {
-	// 	n := 0
-	// 	// for {
-	// 	// 	if n > 1000 {
-	// 	// 		break
-	// 	// 	}
-	// 	populateSubs(b.subtrie)
-	// 	//@performance 3800ms调用一次
-	// 	t := []byte("/test/g1/+/b1")
-
-	// 	b.subtrie.Lookup(t)
-	// 	n++
-	// 	// }
-
-	// }()
 }
 func (b *Broker) Shutdown() {
 	b.running = false

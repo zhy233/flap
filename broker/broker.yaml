@@ -6,17 +6,17 @@ common:
 
 broker:
   host: localhost
-  port: 8902
+  port: 8901
   
 store:
   engine: memory
 
 
 cluster:
-  hwaddr: "00:00:00:00:00:02"
-  port: "8912"
+  hwaddr: "00:00:00:00:00:01"
+  port: "8911"
   seedpeers: 
-    - "localhost:8911"
+    - ""
 
 admin:
-  addr: "localhost:8922"
+  addr: "localhost:8921"

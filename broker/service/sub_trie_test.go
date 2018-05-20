@@ -110,6 +110,7 @@ func BenchmarkTrieSubscribe(b *testing.B) {
 	}
 }
 
+// get 100K results from 4000K subs
 func BenchmarkTrieLookup(b *testing.B) {
 	st := NewSubTrie()
 	populateSubs(st)
@@ -117,7 +118,7 @@ func BenchmarkTrieLookup(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	t := []byte("/test/g1/+/b1")
+	t := []byte("/test/g1/1/b1/1/1")
 	for i := 0; i < b.N; i++ {
 		v, err := st.Lookup(t)
 		if err != nil {

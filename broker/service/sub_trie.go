@@ -33,6 +33,10 @@ type Sess struct {
 	Cid  uint64
 }
 
+const subCacheLen = 1000
+
+var subCache = make(map[string]int)
+
 var (
 	wildcard = talent.MurMurHash([]byte{proto.TopicWildcard})
 	sublock  = &sync.RWMutex{}
@@ -177,14 +181,27 @@ func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh
 
 	return nil
 }
+
+//@todo
+// add query cache for heavy lookup
 func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
-	// ts := time.Now()
+	t := string(topic)
+
 	tids, err := parseTopic(topic, false)
 	if err != nil {
 		return nil, err
 	}
 
 	var sesses []Sess
+	sublock.RLock()
+	cl, ok := subCache[t]
+	sublock.RUnlock()
+	if ok {
+		sesses = make([]Sess, 0, cl+100)
+	} else {
+		sesses = make([]Sess, 0, 10)
+	}
+
 	rootid := tids[0]
 
 	sublock.RLock()
@@ -207,14 +224,20 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 
 	// 找到lastNode的所有子节点
 	//@performance 这段代码耗时92毫秒
+
 	sublock.RLock()
 	for _, last := range lastNodes {
 		st.findSesses(last, &sesses)
 	}
 	sublock.RUnlock()
-	// fmt.Println(time.Now().Sub(ts).Nanoseconds()/1e6, len(sesses))
+
 	//@todo
 	//Remove duplicate elements from the list.
+	if len(sesses) >= subCacheLen {
+		sublock.Lock()
+		subCache[string(topic)] = len(sesses)
+		sublock.Unlock()
+	}
 	return sesses, nil
 }
 
@@ -266,7 +289,7 @@ func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
 		} else {
 			s = g.Sesses[rand.Intn(len(g.Sesses))]
 		}
-		if cap(*sesses)-len(*sesses) <= 2 {
+		if cap(*sesses) == len(*sesses) {
 			temp := make([]Sess, len(*sesses), cap(*sesses)*6)
 			copy(temp, *sesses)
 			*sesses = temp
