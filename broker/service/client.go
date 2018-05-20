@@ -36,8 +36,8 @@ func initClient(cid uint64, conn net.Conn, bk *Broker) *client {
 		cid:       cid,
 		conn:      conn,
 		bk:        bk,
-		msgSender: make(chan []*proto.PubMsg, 10000),
-		ackSender: make(chan [][]byte, 10000),
+		msgSender: make(chan []*proto.PubMsg, MAX_CHANNEL_LEN),
+		ackSender: make(chan [][]byte, MAX_CHANNEL_LEN),
 		subs:      make(map[string][]byte),
 	}
 }
@@ -84,7 +84,7 @@ func (c *client) readLoop() error {
 				return err
 			}
 			//@todo
-			//Check to see if the topic exists.
+			//Check to see if the topic prop exists.
 
 			// save the messages
 			c.bk.store.Put(ms)
@@ -200,7 +200,7 @@ func (c *client) readLoop() error {
 
 func (c *client) sendLoop() {
 	scache := make([]*proto.PubMsg, 0, MAX_MESSAGE_BATCH)
-	acache := make([][]byte, 0, 1000)
+	acache := make([][]byte, 0, MAX_CHANNEL_LEN)
 	defer func() {
 		c.closed = true
 		c.conn.Close()

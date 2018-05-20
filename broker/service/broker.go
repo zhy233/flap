@@ -104,7 +104,7 @@ func (b *Broker) Shutdown() {
 	for _, c := range b.clients {
 		c.conn.Close()
 	}
-	// b.cluster.Close()
+	b.cluster.Close()
 	b.store.Close()
 	b.router.Close()
 	b.timer.Close()

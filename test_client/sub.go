@@ -67,7 +67,7 @@ func sub(conn net.Conn) {
 
 			msgid := []byte("0")
 			// 拉取最新消息
-			msg := proto.PackPullMsg(msgid, topic, 100)
+			msg := proto.PackPullMsg(topic, 100, msgid)
 			conn.Write(msg)
 
 			// unread = count

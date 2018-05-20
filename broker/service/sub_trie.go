@@ -24,6 +24,15 @@ type SubTrie struct {
 	Roots map[uint32]*Node
 }
 
+type SubGroup struct {
+	ID     []byte
+	Sesses []Sess
+}
+type Sess struct {
+	Addr mesh.PeerName
+	Cid  uint64
+}
+
 var (
 	wildcard = talent.MurMurHash([]byte{proto.TopicWildcard})
 	sublock  = &sync.RWMutex{}
@@ -284,7 +293,7 @@ func (st *SubTrie) findLastNodes(n *Node, tids []uint32, nodes *[]*Node) {
 
 // cluster interface
 
-var _ mesh.GossipData = make(Subs)
+var _ mesh.GossipData = &SubTrie{}
 
 // Encode serializes our complete state to a slice of byte-slices.
 // In this simple example, we use a single gob-encoded
@@ -306,5 +315,26 @@ func (st *SubTrie) Encode() [][]byte {
 // Merge merges the other GossipData into this one,
 // and returns our resulting, complete state.
 func (st *SubTrie) Merge(osubs mesh.GossipData) (complete mesh.GossipData) {
+	return
+}
+
+type SubMessage struct {
+	TP    int
+	Topic []byte
+	Group []byte
+	Cid   uint64
+}
+
+func (st SubMessage) Encode() [][]byte {
+	// sync to other nodes
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(st); err != nil {
+		panic(err)
+	}
+
+	return [][]byte{buf.Bytes()}
+}
+
+func (st SubMessage) Merge(new mesh.GossipData) (complete mesh.GossipData) {
 	return
 }

@@ -105,7 +105,7 @@ func (ms *MemStore) Init() {
 				if len(ms.ackSyncCache) > 0 {
 					ms.Lock()
 					m := proto.PackAck(ms.ackSyncCache, MEM_MSG_ACK)
-					ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
+					ms.ackSyncCache = make([][]byte, 0, MAX_CHANNEL_LEN)
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))
@@ -114,7 +114,7 @@ func (ms *MemStore) Init() {
 				if len(ms.msgSyncCache) > 0 {
 					ms.Lock()
 					m := proto.PackPubMsgs(ms.msgSyncCache, MEM_MSG_ADD)
-					ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
+					ms.msgSyncCache = make([]*proto.PubMsg, 0, MAX_CHANNEL_LEN)
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))

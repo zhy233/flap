@@ -51,6 +51,9 @@ func parseTopic(t []byte, exactly bool) ([]uint32, error) {
 		tids = append(tids, tid)
 	}
 
+	if len(tids) == 0 {
+		return nil, errors.New("topic invalid")
+	}
 	// first part of topic cant be wildcard
 	if tids[0] == talent.MurMurHash([]byte{proto.TopicWildcard}) {
 		return nil, errors.New("first byte cant be wildcard")

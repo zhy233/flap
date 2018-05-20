@@ -17,6 +17,8 @@ const (
 
 	MAX_MESSAGE_BATCH      = 200
 	MAX_MESSAGE_PULL_COUNT = 200
+
+	MAX_CHANNEL_LEN = 1000
 )
 
 const (
