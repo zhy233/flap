@@ -19,10 +19,15 @@ const (
 	MAX_MESSAGE_PULL_COUNT = 200
 )
 
-var (
-	CLUSTER_SUB          = 1
-	CLUSTER_UNSUB        = 2
-	CLUSTER_RUNNING_TIME = 3
+const (
+	CLUSTER_SUB              = 1
+	CLUSTER_UNSUB            = 2
+	CLUSTER_RUNNING_TIME_REQ = 3
+
+	CLUSTER_RUNNING_TIME_RESP = 'a'
+	CLUSTER_MSG_ROUTE         = 'b'
+	CLUSTER_SUBS_SYNC_REQ     = 'c'
+	CLUSTER_SUBS_SYNC_RESP    = 'd'
 )
 
 var glock = &sync.RWMutex{}

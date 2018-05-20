@@ -124,8 +124,59 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 	return nil
 }
 
-func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
+func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh.PeerName) error {
+	// t := string(topic)
+	// tids, err := parseTopic(topic, true)
+	// if err != nil {
+	// 	return err
+	// }
+	// rootid := tids[0]
+	// last := tids[len(tids)-1]
 
+	// sublock.RLock()
+	// root, ok := st.Roots[rootid]
+	// sublock.RUnlock()
+
+	// if !ok {
+	// 	return errors.New("no subscribe info")
+	// }
+
+	// curr := root
+	// for _, tid := range tids[1:] {
+	// 	sublock.RLock()
+	// 	child, ok := curr.Children[tid]
+	// 	sublock.RUnlock()
+	// 	if !ok {
+	// 		return errors.New("no subscribe info")
+	// 	}
+
+	// 	curr = child
+	// 	// if encounters the last node in the tree branch, we should remove topic in this node
+	// 	if tid == last {
+	// 		t1, ok := ms.bk.subs[t]
+	// 		if !ok {
+	// 			return
+	// 		}
+	// 		for j, g := range t1 {
+	// 			if bytes.Compare(g.ID, group) == 0 {
+	// 				// group exist
+	// 				for i, c := range g.Sesses {
+	// 					if c.Cid == cid && addr == c.Addr {
+	// 						// delete sess
+	// 						g.Sesses = append(g.Sesses[:i], g.Sesses[i+1:]...)
+	// 						if len(g.Sesses) == 0 {
+	// 							//delete group
+	// 							ms.bk.subs[t] = append(ms.bk.subs[t][:j], ms.bk.subs[t][j+1:]...)
+	// 						}
+	// 						return
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	return nil
 }
 func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	tids, err := parseTopic(topic, false)
@@ -261,7 +312,7 @@ func (st *SubTrie) Encode() [][]byte {
 		panic(err)
 	}
 	msg := make([]byte, len(buf.Bytes())+5)
-	msg[4] = ROUTER_SUBS_SYNC
+	msg[4] = CLUSTER_SUBS_SYNC_RESP
 	copy(msg[5:], buf.Bytes())
 	return [][]byte{msg}
 }

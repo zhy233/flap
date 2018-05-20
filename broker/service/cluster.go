@@ -95,10 +95,10 @@ func (c *cluster) Init() {
 
 	// loop to get the running time of other nodes
 	go func() {
-		submsg := SubMessage{CLUSTER_RUNNING_TIME, nil, nil, 0}
+		submsg := SubMessage{CLUSTER_RUNNING_TIME_REQ, nil, nil, 0}
 
 		syncmsg := make([]byte, 5)
-		syncmsg[4] = ROUTER_SUBS_SYNC_REQ
+		syncmsg[4] = CLUSTER_SUBS_SYNC_REQ
 		c.bk.cluster.peer.longestRunningTime = uint64(c.bk.runningTime.Unix())
 		n := 0
 		for {
@@ -196,9 +196,9 @@ func (p *peer) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received mesh.G
 	case CLUSTER_UNSUB:
 		fmt.Println("recv unsub:", string(msg.Topic), string(msg.Group), msg.Cid)
 		p.bk.subtrie.UnSubscribe(msg.Topic, msg.Group, msg.Cid, src)
-	case CLUSTER_RUNNING_TIME:
+	case CLUSTER_RUNNING_TIME_REQ:
 		t := make([]byte, 13)
-		t[4] = ROUTER_RUNNING_TIME
+		t[4] = CLUSTER_RUNNING_TIME_RESP
 		binary.PutUvarint(t[5:], uint64(p.bk.runningTime.Unix()))
 		p.send.GossipUnicast(src, t)
 	}
@@ -208,22 +208,19 @@ func (p *peer) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received mesh.G
 
 // Merge the gossiped data represented by buf into our state.
 func (p *peer) OnGossipUnicast(src mesh.PeerName, buf []byte) error {
-	if buf[4] == ROUTER_RUNNING_TIME {
+	switch buf[4] {
+	case CLUSTER_RUNNING_TIME_RESP:
 		t, _ := binary.Uvarint(buf[5:])
 		if t < p.longestRunningTime {
 			p.longestRunningName = src
 			p.longestRunningTime = t
 		}
-		return nil
-	}
 
-	if buf[4] == ROUTER_SUBS_SYNC_REQ {
+	case CLUSTER_SUBS_SYNC_REQ:
 		b := p.bk.subtrie.Encode()[0]
 		p.send.GossipUnicast(src, b)
-		return nil
-	}
 
-	if buf[4] == ROUTER_SUBS_SYNC {
+	case CLUSTER_SUBS_SYNC_RESP:
 		set := NewSubTrie()
 		err := gob.NewDecoder(bytes.NewReader(buf[5:])).Decode(&set)
 		if err != nil {
@@ -234,9 +231,11 @@ func (p *peer) OnGossipUnicast(src mesh.PeerName, buf []byte) error {
 
 		fmt.Printf("recv subs sync %v from %v,that node starts running at %v\n", p.bk.subtrie, src, time.Unix(int64(p.longestRunningTime), 0))
 		p.bk.subSynced = true
-		return nil
+
+	case CLUSTER_MSG_ROUTE:
+		p.bk.router.recvRoute(src, buf)
 	}
-	p.bk.router.recvRoute(src, buf)
+
 	return nil
 }
 
