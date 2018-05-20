@@ -46,7 +46,7 @@ func (c *client) readLoop() error {
 		c.closed = true
 		// unsub topics
 		for topic, group := range c.subs {
-			c.bk.store.Unsub([]byte(topic), group, c.cid, c.bk.cluster.peer.name)
+			c.bk.subtrie.UnSubscribe([]byte(topic), group, c.cid, c.bk.cluster.peer.name)
 			//@todo
 			// aync + batch
 			submsg := SubMessage{CLUSTER_UNSUB, []byte(topic), group, c.cid}
@@ -105,13 +105,15 @@ func (c *client) readLoop() error {
 				return errors.New("the sub topic is null")
 			}
 			//Check to see if the topic created.
-			prop, ok := c.bk.store.GetTopicProp(topic)
+
+			prop, ok := c.bk.store.GetTopicProp(getTopicPrefix(topic))
 			if !ok {
 				L.Info("sub topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
 				return nil
 			}
 
-			c.bk.store.Sub(topic, group, c.cid, c.bk.cluster.peer.name)
+			// c.bk.store.Sub(topic, group, c.cid, c.bk.cluster.peer.name)
+			c.bk.subtrie.Subscribe(topic, group, c.cid, c.bk.cluster.peer.name)
 			submsg := SubMessage{CLUSTER_SUB, topic, group, c.cid}
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 
@@ -135,7 +137,7 @@ func (c *client) readLoop() error {
 				return errors.New("the unsub topic is null")
 			}
 
-			c.bk.store.Unsub(topic, group, c.cid, c.bk.cluster.peer.name)
+			c.bk.subtrie.UnSubscribe(topic, group, c.cid, c.bk.cluster.peer.name)
 			//@todo
 			// aync + batch
 			submsg := SubMessage{CLUSTER_UNSUB, topic, group, c.cid}
@@ -160,7 +162,7 @@ func (c *client) readLoop() error {
 			}
 
 			//Check to see if the topic created and get the topic prop
-			prop, ok := c.bk.store.GetTopicProp(topic)
+			prop, ok := c.bk.store.GetTopicProp(getTopicPrefix(topic))
 			if !ok {
 				L.Info("pull topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
 				return nil

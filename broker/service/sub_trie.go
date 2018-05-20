@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"encoding/gob"
 	"math/rand"
 	"sync"
 
@@ -14,17 +15,16 @@ import (
 type Node struct {
 	ID       uint32
 	Subs     map[string][]*SubGroup
-	Parent   *Node
 	Children map[uint32]*Node
 }
 
 type SubTrie struct {
-	sync.RWMutex
 	Roots map[uint32]*Node
 }
 
 var (
 	wildcard = talent.MurMurHash([]byte{proto.TopicWildcard})
+	sublock  = &sync.RWMutex{}
 )
 
 func NewSubTrie() *SubTrie {
@@ -42,9 +42,9 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 	rootid := tids[0]
 	last := tids[len(tids)-1]
 
-	st.RLock()
+	sublock.RLock()
 	root, ok := st.Roots[rootid]
-	st.RUnlock()
+	sublock.RUnlock()
 
 	if !ok {
 		root = &Node{
@@ -52,34 +52,33 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 			Children: make(map[uint32]*Node),
 			Subs:     make(map[string][]*SubGroup),
 		}
-		st.Lock()
+		sublock.Lock()
 		st.Roots[rootid] = root
-		st.Unlock()
+		sublock.Unlock()
 	}
 
 	curr := root
 	for _, tid := range tids[1:] {
-		st.RLock()
+		sublock.RLock()
 		child, ok := curr.Children[tid]
-		st.RUnlock()
+		sublock.RUnlock()
 		if !ok {
 			child = &Node{
 				ID:       tid,
-				Parent:   curr,
 				Children: make(map[uint32]*Node),
 				Subs:     make(map[string][]*SubGroup),
 			}
-			st.Lock()
+			sublock.Lock()
 			curr.Children[tid] = child
-			st.Unlock()
+			sublock.Unlock()
 		}
 
 		curr = child
 		// if encounters the last node in the tree branch, we should add topic to the subs of this node
 		if tid == last {
-			st.RLock()
+			sublock.RLock()
 			t1, ok := curr.Subs[t]
-			st.RUnlock()
+			sublock.RUnlock()
 			if !ok {
 				// []group
 				g := &SubGroup{
@@ -91,9 +90,9 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 						},
 					},
 				}
-				st.Lock()
+				sublock.Lock()
 				curr.Subs[t] = []*SubGroup{g}
-				st.Unlock()
+				sublock.Unlock()
 			} else {
 				for _, g := range t1 {
 					// group already exist,add to group
@@ -115,9 +114,9 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 						},
 					},
 				}
-				st.Lock()
+				sublock.Lock()
 				curr.Subs[t] = append(curr.Subs[t], g)
-				st.Unlock()
+				sublock.Unlock()
 			}
 		}
 	}
@@ -125,6 +124,9 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 	return nil
 }
 
+func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
+
+}
 func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	tids, err := parseTopic(topic, false)
 	if err != nil {
@@ -134,9 +136,9 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	var sesses []Sess
 	rootid := tids[0]
 
-	st.RLock()
+	sublock.RLock()
 	root, ok := st.Roots[rootid]
-	st.RUnlock()
+	sublock.RUnlock()
 	if !ok {
 		return nil, nil
 	}
@@ -152,11 +154,14 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	}
 
 	// 找到lastNode的所有子节点
-	st.RLock()
+	sublock.RLock()
 	for _, last := range lastNodes {
 		st.findSesses(last, &sesses)
 	}
-	st.RUnlock()
+	sublock.RUnlock()
+
+	//@todo
+	//Remove duplicate elements from the list.
 	return sesses, nil
 }
 
@@ -169,8 +174,8 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
 	var sesses []Sess
 	rootid := tids[0]
 
-	st.RLock()
-	defer st.RUnlock()
+	sublock.RLock()
+	defer sublock.RUnlock()
 	root, ok := st.Roots[rootid]
 	if !ok {
 		return nil, nil
@@ -238,4 +243,31 @@ func (st *SubTrie) findLastNodes(n *Node, tids []uint32, nodes *[]*Node) {
 			st.findLastNodes(node, tids[1:], nodes)
 		}
 	}
+}
+
+// cluster interface
+
+var _ mesh.GossipData = make(Subs)
+
+// Encode serializes our complete state to a slice of byte-slices.
+// In this simple example, we use a single gob-encoded
+// buffer: see https://golang.org/pkg/encoding/gob/
+func (st *SubTrie) Encode() [][]byte {
+	sublock.RLock()
+	defer sublock.RUnlock()
+
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(st); err != nil {
+		panic(err)
+	}
+	msg := make([]byte, len(buf.Bytes())+5)
+	msg[4] = ROUTER_SUBS_SYNC
+	copy(msg[5:], buf.Bytes())
+	return [][]byte{msg}
+}
+
+// Merge merges the other GossipData into this one,
+// and returns our resulting, complete state.
+func (st *SubTrie) Merge(osubs mesh.GossipData) (complete mesh.GossipData) {
+	return
 }

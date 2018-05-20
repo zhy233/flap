@@ -396,73 +396,32 @@ func (ms *MemStore) FlushAck() {
 	ms.ackCache = ms.ackCache[len(temp):]
 	ms.Unlock()
 }
-func (ms *MemStore) Sub(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
-	t := string(topic)
-	ms.Lock()
-	ms.Unlock()
-	t1, ok := ms.bk.subs[t]
-	if !ok {
-		// []group
-		g := &SubGroup{
-			ID: group,
-			Sesses: []Sess{
-				Sess{
-					Addr: addr,
-					Cid:  cid,
-				},
-			},
-		}
-		ms.bk.subs[t] = []*SubGroup{g}
-	} else {
-		for _, g := range t1 {
-			// group already exist,add to group
-			if bytes.Compare(g.ID, group) == 0 {
-				g.Sesses = append(g.Sesses, Sess{
-					Addr: addr,
-					Cid:  cid,
-				})
-				return
-			}
-		}
-		// create group
-		g := &SubGroup{
-			ID: group,
-			Sesses: []Sess{
-				Sess{
-					Addr: addr,
-					Cid:  cid,
-				},
-			},
-		}
-		ms.bk.subs[t] = append(ms.bk.subs[t], g)
-	}
-}
 
-func (ms *MemStore) Unsub(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
-	t := string(topic)
-	ms.Lock()
-	defer ms.Unlock()
-	t1, ok := ms.bk.subs[t]
-	if !ok {
-		return
-	}
-	for j, g := range t1 {
-		if bytes.Compare(g.ID, group) == 0 {
-			// group exist
-			for i, c := range g.Sesses {
-				if c.Cid == cid && addr == c.Addr {
-					// delete sess
-					g.Sesses = append(g.Sesses[:i], g.Sesses[i+1:]...)
-					if len(g.Sesses) == 0 {
-						//delete group
-						ms.bk.subs[t] = append(ms.bk.subs[t][:j], ms.bk.subs[t][j+1:]...)
-					}
-					return
-				}
-			}
-		}
-	}
-}
+// func (ms *MemStore) Unsub(topic []byte, group []byte, cid uint64, addr mesh.PeerName) {
+// 	t := string(topic)
+// 	ms.Lock()
+// 	defer ms.Unlock()
+// 	t1, ok := ms.bk.subs[t]
+// 	if !ok {
+// 		return
+// 	}
+// 	for j, g := range t1 {
+// 		if bytes.Compare(g.ID, group) == 0 {
+// 			// group exist
+// 			for i, c := range g.Sesses {
+// 				if c.Cid == cid && addr == c.Addr {
+// 					// delete sess
+// 					g.Sesses = append(g.Sesses[:i], g.Sesses[i+1:]...)
+// 					if len(g.Sesses) == 0 {
+// 						//delete group
+// 						ms.bk.subs[t] = append(ms.bk.subs[t][:j], ms.bk.subs[t][j+1:]...)
+// 					}
+// 					return
+// 				}
+// 			}
+// 		}
+// 	}
+// }
 
 func (ms *MemStore) PutTimerMsg(m *proto.TimerMsg) {
 	ms.Lock()

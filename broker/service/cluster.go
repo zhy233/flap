@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/weaveworks/mesh"
 	"go.uber.org/zap"
@@ -80,7 +82,7 @@ func (c *cluster) Init() {
 		ms.register(g)
 	}
 
-	func() {
+	go func() {
 		L.Debug("cluster starting", zap.String("listen_addr", meshListen))
 		router.Start()
 	}()
@@ -90,6 +92,34 @@ func (c *cluster) Init() {
 	}()
 
 	router.ConnectionMaker.InitiateConnections(peers.slice(), true)
+
+	// loop to get the running time of other nodes
+	go func() {
+		submsg := SubMessage{CLUSTER_RUNNING_TIME, nil, nil, 0}
+
+		syncmsg := make([]byte, 5)
+		syncmsg[4] = ROUTER_SUBS_SYNC_REQ
+		c.bk.cluster.peer.longestRunningTime = uint64(c.bk.runningTime.Unix())
+		n := 0
+		for {
+			if n > 3 {
+				break
+			}
+			time.Sleep(5 * time.Second)
+			if c.bk.subSynced {
+				break
+			}
+			c.bk.cluster.peer.send.GossipBroadcast(submsg)
+			time.Sleep(3 * time.Second)
+			// sync the subs from the longest running node
+			if c.bk.cluster.peer.longestRunningTime < uint64(c.bk.runningTime.Unix()) {
+				c.bk.cluster.peer.send.GossipUnicast(c.bk.cluster.peer.longestRunningName, syncmsg)
+				continue
+			}
+			// 没有节点比本地节点运行时间更久，为了以防万一，我们做4次循环
+			n++
+		}
+	}()
 
 	select {
 	case <-c.closed:
@@ -109,6 +139,9 @@ type peer struct {
 	name mesh.PeerName
 	bk   *Broker
 	send mesh.Gossip
+
+	longestRunningName mesh.PeerName
+	longestRunningTime uint64
 }
 
 // peer implements mesh.Gossiper.
@@ -136,21 +169,13 @@ func (p *peer) stop() {
 }
 
 // Return a copy of our complete state.
-func (p *peer) Gossip() mesh.GossipData {
-	return p.bk.subs
+func (p *peer) Gossip() (complete mesh.GossipData) {
+	return p.bk.subtrie
 }
 
 // Merge the gossiped data represented by buf into our state.
 // Return the state information that was modified.
 func (p *peer) OnGossip(buf []byte) (delta mesh.GossipData, err error) {
-	var set Subs
-	err = gob.NewDecoder(bytes.NewReader(buf)).Decode(&set)
-	if err != nil {
-		L.Info("on gossip decode error", zap.Error(err))
-		return
-	}
-
-	p.bk.subs.Merge(set)
 	return
 }
 
@@ -166,9 +191,16 @@ func (p *peer) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received mesh.G
 
 	switch msg.TP {
 	case CLUSTER_SUB:
-		p.bk.store.Sub(msg.Topic, msg.Group, msg.Cid, src)
+		fmt.Println("recv sub:", string(msg.Topic), string(msg.Group), msg.Cid)
+		p.bk.subtrie.Subscribe(msg.Topic, msg.Group, msg.Cid, src)
 	case CLUSTER_UNSUB:
-		p.bk.store.Unsub(msg.Topic, msg.Group, msg.Cid, src)
+		fmt.Println("recv unsub:", string(msg.Topic), string(msg.Group), msg.Cid)
+		p.bk.subtrie.UnSubscribe(msg.Topic, msg.Group, msg.Cid, src)
+	case CLUSTER_RUNNING_TIME:
+		t := make([]byte, 13)
+		t[4] = ROUTER_RUNNING_TIME
+		binary.PutUvarint(t[5:], uint64(p.bk.runningTime.Unix()))
+		p.send.GossipUnicast(src, t)
 	}
 
 	return
@@ -176,7 +208,35 @@ func (p *peer) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received mesh.G
 
 // Merge the gossiped data represented by buf into our state.
 func (p *peer) OnGossipUnicast(src mesh.PeerName, buf []byte) error {
-	p.bk.router.recvRoute(buf)
+	if buf[4] == ROUTER_RUNNING_TIME {
+		t, _ := binary.Uvarint(buf[5:])
+		if t < p.longestRunningTime {
+			p.longestRunningName = src
+			p.longestRunningTime = t
+		}
+		return nil
+	}
+
+	if buf[4] == ROUTER_SUBS_SYNC_REQ {
+		b := p.bk.subtrie.Encode()[0]
+		p.send.GossipUnicast(src, b)
+		return nil
+	}
+
+	if buf[4] == ROUTER_SUBS_SYNC {
+		set := NewSubTrie()
+		err := gob.NewDecoder(bytes.NewReader(buf[5:])).Decode(&set)
+		if err != nil {
+			L.Info("on gossip decode error", zap.Error(err))
+			return err
+		}
+		p.bk.subtrie = set
+
+		fmt.Printf("recv subs sync %v from %v,that node starts running at %v\n", p.bk.subtrie, src, time.Unix(int64(p.longestRunningTime), 0))
+		p.bk.subSynced = true
+		return nil
+	}
+	p.bk.router.recvRoute(src, buf)
 	return nil
 }
 

@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"encoding/gob"
-	"sync"
 
 	"github.com/weaveworks/mesh"
 )
@@ -18,8 +17,6 @@ type Sess struct {
 	Addr mesh.PeerName
 	Cid  uint64
 }
-
-var sublock = &sync.RWMutex{}
 
 // make sure the Subs is mesh.GossipData type
 var _ mesh.GossipData = make(Subs)

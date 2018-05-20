@@ -15,18 +15,20 @@ import (
 )
 
 type Broker struct {
-	wg       *sync.WaitGroup
-	running  bool
-	listener net.Listener
+	wg          *sync.WaitGroup
+	running     bool
+	runningTime time.Time
+	listener    net.Listener
 
 	clients map[uint64]*client
-	subs    Subs
 
 	store   Storage
 	router  *Router
 	timer   *Timer
 	cluster *cluster
 
+	subtrie   *SubTrie
+	subSynced bool
 	sync.Mutex
 }
 
@@ -34,7 +36,7 @@ func NewBroker() *Broker {
 	b := &Broker{
 		wg:      &sync.WaitGroup{},
 		clients: make(map[uint64]*client),
-		subs:    make(Subs),
+		subtrie: NewSubTrie(),
 	}
 	// init base config
 	InitConfig()
@@ -56,6 +58,7 @@ func (b *Broker) Start() {
 	go b.Accept()
 
 	b.running = true
+	b.runningTime = time.Now()
 
 	// init store
 	switch Conf.Store.Engine {
@@ -101,7 +104,7 @@ func (b *Broker) Shutdown() {
 	for _, c := range b.clients {
 		c.conn.Close()
 	}
-	b.cluster.Close()
+	// b.cluster.Close()
 	b.store.Close()
 	b.router.Close()
 	b.timer.Close()

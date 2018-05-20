@@ -20,8 +20,9 @@ const (
 )
 
 var (
-	CLUSTER_SUB   = 1
-	CLUSTER_UNSUB = 2
+	CLUSTER_SUB          = 1
+	CLUSTER_UNSUB        = 2
+	CLUSTER_RUNNING_TIME = 3
 )
 
 var glock = &sync.RWMutex{}

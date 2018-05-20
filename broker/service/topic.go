@@ -78,3 +78,17 @@ func parseTopic(t []byte, exactly bool) ([]uint32, error) {
 	}
 	return tids, nil
 }
+
+func getTopicPrefix(topic []byte) []byte {
+	n := 0
+	for i, b := range topic {
+		if b == '/' {
+			n++
+		}
+		if n == 3 {
+			return topic[:i]
+		}
+	}
+
+	return nil
+}

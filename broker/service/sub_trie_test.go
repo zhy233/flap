@@ -24,7 +24,8 @@ func TestTrieSubAndLookup(t *testing.T) {
 		SubData{[]byte("/a1/b1/c1"), []byte("test1"), 2, mesh.PeerName(2)},
 		SubData{[]byte("/a1/b1/c1"), []byte("test2"), 3, mesh.PeerName(1)},
 		SubData{[]byte("/a1/b1/c1"), []byte("test2"), 4, mesh.PeerName(2)},
-		SubData{[]byte("/a1/b1/c1/d1"), []byte("test1"), 5, mesh.PeerName(1)},
+		SubData{[]byte("/a1/b1/c1/d1/e1"), []byte("test1"), 5, mesh.PeerName(1)},
+		SubData{[]byte("/a1/b1/c1/d1/e2"), []byte("test1"), 5, mesh.PeerName(2)},
 		SubData{[]byte("/a1/b2/c1"), []byte("test2"), 6, mesh.PeerName(2)},
 		SubData{[]byte("/a1/b2/c2"), []byte("test1"), 7, mesh.PeerName(2)},
 		SubData{[]byte("/a2/b1/c1"), []byte("test1"), 8, mesh.PeerName(1)},
@@ -34,7 +35,7 @@ func TestTrieSubAndLookup(t *testing.T) {
 		st.Subscribe(input.Topic, input.Group, input.Cid, input.Addr)
 	}
 
-	v, _ := st.Lookup([]byte("/a1/+/c1"))
+	v, _ := st.Lookup([]byte("/a1/+/+/d1"))
 	assert.Equal(t, outputs, v)
 }
 

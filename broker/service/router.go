@@ -1,10 +1,10 @@
 package service
 
 import (
-	"math/rand"
 	"sync"
 
 	"github.com/meqio/proto"
+	"github.com/weaveworks/mesh"
 	"go.uber.org/zap"
 )
 
@@ -14,7 +14,10 @@ type Router struct {
 }
 
 const (
-	ROUTER_MSG_ADD = 'a'
+	ROUTER_MSG_ADD       = 'a'
+	ROUTER_SUBS_SYNC     = 'b'
+	ROUTER_RUNNING_TIME  = 'c'
+	ROUTER_SUBS_SYNC_REQ = 'd'
 )
 
 type RouterTarget struct {
@@ -30,21 +33,21 @@ func (r *Router) Close() {
 
 }
 
-func (r *Router) recvRoute(buf []byte) {
-	if buf[4] != ROUTER_MSG_ADD {
-		return
-	}
-	msgs, cid, err := proto.UnpackRouteMsgs(buf[5:])
-	if err != nil {
-		L.Warn("route process error", zap.Error(err))
-		return
-	}
+func (r *Router) recvRoute(src mesh.PeerName, buf []byte) {
+	switch buf[4] {
+	case ROUTER_MSG_ADD:
+		msgs, cid, err := proto.UnpackRouteMsgs(buf[5:])
+		if err != nil {
+			L.Warn("route process error", zap.Error(err))
+			return
+		}
 
-	r.RLock()
-	c, ok := r.bk.clients[cid]
-	r.RUnlock()
-	if ok {
-		c.msgSender <- msgs
+		r.RLock()
+		c, ok := r.bk.clients[cid]
+		r.RUnlock()
+		if ok {
+			c.msgSender <- msgs
+		}
 	}
 }
 func (r *Router) route(outer map[Sess][]*proto.PubMsg) {
@@ -60,22 +63,25 @@ func (r *Router) FindRoutes(msgs []*proto.PubMsg) (map[Sess][]*proto.PubMsg, map
 	local := make(map[Sess][]*proto.PubMsg)
 	outer := make(map[Sess][]*proto.PubMsg)
 
+	topics := make(map[string][]*proto.PubMsg)
 	for _, msg := range msgs {
 		t := string(msg.Topic)
-		groups, ok := r.bk.subs[t]
-		if !ok || len(groups) == 0 {
-			continue
+		topics[t] = append(topics[t], msg)
+	}
+
+	for t, msgs := range topics {
+		sesses, err := r.bk.subtrie.Lookup([]byte(t))
+		if err != nil {
+			L.Info("sub trie lookup error", zap.Error(err), zap.String("topic", t))
 		}
 
-		for _, g := range groups {
-			s := g.Sesses[rand.Intn(len(g.Sesses))]
+		for _, s := range sesses {
 			if s.Addr == r.bk.cluster.peer.name {
-				local[s] = append(local[s], msg)
+				local[s] = append(local[s], msgs...)
 			} else {
-				outer[s] = append(outer[s], msg)
+				outer[s] = append(outer[s], msgs...)
 			}
 		}
 	}
-
 	return local, outer
 }
