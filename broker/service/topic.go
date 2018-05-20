@@ -5,7 +5,7 @@ import (
 
 	"github.com/chaingod/talent"
 
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 func parseTopic(t []byte, exactly bool) ([]uint32, error) {

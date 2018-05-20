@@ -4,7 +4,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 type pushPacket struct {

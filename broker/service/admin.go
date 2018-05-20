@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo"
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 type admin struct {

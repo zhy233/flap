@@ -9,7 +9,7 @@ import (
 
 	"github.com/chaingod/talent"
 
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 	"github.com/weaveworks/mesh"
 )
 

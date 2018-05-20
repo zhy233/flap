@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 type Storage interface {

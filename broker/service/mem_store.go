@@ -12,7 +12,7 @@ import (
 
 	"github.com/weaveworks/mesh"
 
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 type MemStore struct {
