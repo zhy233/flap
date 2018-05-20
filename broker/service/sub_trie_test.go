@@ -117,7 +117,7 @@ func BenchmarkTrieLookup(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	t := []byte("/50/3")
+	t := []byte("/test/g1/+/b1")
 	for i := 0; i < b.N; i++ {
 		v, err := st.Lookup(t)
 		if err != nil {
@@ -133,27 +133,8 @@ func BenchmarkTrieLookupExactly(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	t := []byte("/50/3/6/5000")
+	t := []byte("/test/g1/5/b1")
 	for i := 0; i < b.N; i++ {
 		st.LookupExactly(t)
-	}
-}
-
-func populateSubs(st *SubTrie) {
-	for i := 1; i <= 10; i++ {
-		for j := 1; j <= 4; j++ {
-			for k := 1; k <= 10; k++ {
-				for l := 1; l <= 10000; l++ {
-					topic := []byte(fmt.Sprintf("/%d/%d/%d/%d", i, j, k, l))
-					queue := []byte("test1")
-					addr := 1
-					if i%2 == 0 {
-						queue = []byte("test2")
-						addr = 2
-					}
-					st.Subscribe(topic, queue, uint64(i*j*k*l), mesh.PeerName(addr))
-				}
-			}
-		}
 	}
 }

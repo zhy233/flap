@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/meqio/meq/proto"
+	"go.uber.org/zap"
 )
 
 type pushPacket struct {
@@ -13,25 +14,38 @@ type pushPacket struct {
 }
 
 func pushOnline(from uint64, bk *Broker, msgs []*proto.PubMsg) {
-	local, outer := bk.router.FindRoutes(msgs)
-	for s, ms := range local {
-		cid := s.Cid
-		if from == cid {
+	topics := make(map[string][]*proto.PubMsg)
+	for _, msg := range msgs {
+		t := string(msg.Topic)
+		topics[t] = append(topics[t], msg)
+	}
+
+	for t, msgs := range topics {
+		sesses, err := bk.subtrie.Lookup([]byte(t))
+		if err != nil {
+			L.Info("sub trie lookup error", zap.Error(err), zap.String("topic", t))
 			continue
 		}
-
-		bk.Lock()
-		c, ok := bk.clients[cid]
-		bk.Unlock()
-		if !ok { // clients offline,delete it
-			bk.Lock()
-			delete(bk.clients, cid)
-			bk.Unlock()
-		} else { // push to clients sender
-			c.msgSender <- ms
+		for _, sess := range sesses {
+			if sess.Addr == bk.cluster.peer.name {
+				if sess.Cid == from {
+					continue
+				}
+				bk.RLock()
+				c, ok := bk.clients[sess.Cid]
+				bk.RUnlock()
+				if !ok {
+					bk.Lock()
+					delete(bk.clients, sess.Cid)
+					bk.Unlock()
+				} else {
+					c.msgSender <- msgs
+				}
+			} else {
+				bk.router.route(sess, msgs)
+			}
 		}
 	}
-	bk.router.route(outer)
 }
 
 func pushOne(conn net.Conn, m []*proto.PubMsg) error {

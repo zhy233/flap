@@ -178,6 +178,7 @@ func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh
 	return nil
 }
 func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
+	// ts := time.Now()
 	tids, err := parseTopic(topic, false)
 	if err != nil {
 		return nil, err
@@ -196,6 +197,7 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	// 所有比target长的都应该收到
 	// target中的通配符'+'可以匹配任何tid
 	// 找到所有路线的最后一个node节点
+
 	var lastNodes []*Node
 	if len(tids) == 1 {
 		lastNodes = append(lastNodes, root)
@@ -204,12 +206,13 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	}
 
 	// 找到lastNode的所有子节点
+	//@performance 这段代码耗时92毫秒
 	sublock.RLock()
 	for _, last := range lastNodes {
 		st.findSesses(last, &sesses)
 	}
 	sublock.RUnlock()
-
+	// fmt.Println(time.Now().Sub(ts).Nanoseconds()/1e6, len(sesses))
 	//@todo
 	//Remove duplicate elements from the list.
 	return sesses, nil
@@ -254,8 +257,20 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
 }
 
 func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
+	//@performance 50% time used here
 	for _, g := range n.Subs {
-		s := g.Sesses[rand.Intn(len(g.Sesses))]
+		//@performance 随机数消耗30毫秒
+		var s Sess
+		if len(g.Sesses) == 1 {
+			s = g.Sesses[0]
+		} else {
+			s = g.Sesses[rand.Intn(len(g.Sesses))]
+		}
+		if cap(*sesses)-len(*sesses) <= 2 {
+			temp := make([]Sess, len(*sesses), cap(*sesses)*6)
+			copy(temp, *sesses)
+			*sesses = temp
+		}
 		*sesses = append(*sesses, s)
 	}
 

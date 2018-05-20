@@ -42,40 +42,11 @@ func (r *Router) recvRoute(src mesh.PeerName, buf []byte) {
 		c.msgSender <- msgs
 	}
 }
-func (r *Router) route(outer map[Sess][]*proto.PubMsg) {
+func (r *Router) route(s Sess, ms []*proto.PubMsg) {
 	//@todo
 	// async + batch,current implementation will block the client's read loop
-	for s, ms := range outer {
-		m := packRouteMsgs(ms, CLUSTER_MSG_ROUTE, s.Cid)
-		r.bk.cluster.peer.send.GossipUnicast(s.Addr, m)
-	}
-}
-
-func (r *Router) FindRoutes(msgs []*proto.PubMsg) (map[Sess][]*proto.PubMsg, map[Sess][]*proto.PubMsg) {
-	local := make(map[Sess][]*proto.PubMsg)
-	outer := make(map[Sess][]*proto.PubMsg)
-
-	topics := make(map[string][]*proto.PubMsg)
-	for _, msg := range msgs {
-		t := string(msg.Topic)
-		topics[t] = append(topics[t], msg)
-	}
-
-	for t, msgs := range topics {
-		sesses, err := r.bk.subtrie.Lookup([]byte(t))
-		if err != nil {
-			L.Info("sub trie lookup error", zap.Error(err), zap.String("topic", t))
-		}
-
-		for _, s := range sesses {
-			if s.Addr == r.bk.cluster.peer.name {
-				local[s] = append(local[s], msgs...)
-			} else {
-				outer[s] = append(outer[s], msgs...)
-			}
-		}
-	}
-	return local, outer
+	m := packRouteMsgs(ms, CLUSTER_MSG_ROUTE, s.Cid)
+	r.bk.cluster.peer.send.GossipUnicast(s.Addr, m)
 }
 
 func packRouteMsgs(ms []*proto.PubMsg, cmd byte, cid uint64) []byte {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/chaingod/talent"
-	"github.com/meqio/proto"
+	"github.com/meqio/meq/proto"
 )
 
 var topic = "/test/mp/1"
@@ -19,15 +19,15 @@ var thread = flag.Int("t", 1, "")
 
 func main() {
 	flag.Parse()
+	if *op == "test" {
+		test()
+		return
+	}
 
 	if *port == "" {
 		panic("port invalid")
 	}
 
-	if *op == "test" {
-		test()
-		return
-	}
 	conns := connect()
 	switch *op {
 	case "pub":
@@ -78,35 +78,16 @@ func ping(conn net.Conn) {
 	}
 }
 
-func test() {
-	prior1 := make(chan int, 100)
-	prior2 := make(chan int, 100)
+type sess struct {
+	a uint64
+	b uint64
+}
 
-	go func() {
-		n := 0
-		for n < 100 {
-			prior1 <- n
-			n++
-		}
-	}()
-	go func() {
-		n := 0
-		for n < 100 {
-			prior2 <- n
-			n++
-		}
-	}()
-	// 等待消息先发送完成，保证接收的时候，两个优先级队列都已经填满
-	time.Sleep(100 * time.Millisecond)
-	for {
-		select {
-		case i := <-prior1:
-			fmt.Println("prior1 got:", i)
-		default:
-			select {
-			case i := <-prior2:
-				fmt.Println("prior2 got:", i)
-			}
-		}
+func test() {
+	ts := time.Now()
+	s := make([]int, 0, 400000)
+	for i := 0; i < 400000; i++ {
+		s = append(s, i)
 	}
+	fmt.Println(time.Now().Sub(ts).Nanoseconds())
 }
