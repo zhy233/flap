@@ -42,6 +42,7 @@ func initClient(cid uint64, conn net.Conn, bk *Broker) *client {
 	}
 }
 func (c *client) readLoop() error {
+	c.bk.wg.Add(1)
 	defer func() {
 		c.closed = true
 		// unsub topics
@@ -52,7 +53,7 @@ func (c *client) readLoop() error {
 			submsg := SubMessage{CLUSTER_UNSUB, []byte(topic), group, c.cid}
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 		}
-
+		c.bk.wg.Done()
 		if err := recover(); err != nil {
 			return
 		}
