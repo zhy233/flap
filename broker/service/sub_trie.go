@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"math/rand"
 	"sync"
 
@@ -14,7 +15,8 @@ import (
 
 type Node struct {
 	ID       uint32
-	Subs     map[string][]*SubGroup
+	Topic    []byte
+	Subs     []*SubGroup
 	Children map[uint32]*Node
 }
 
@@ -34,7 +36,6 @@ func NewSubTrie() *SubTrie {
 }
 
 func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.PeerName) error {
-	t := string(topic)
 	tids, err := parseTopic(topic, true)
 	if err != nil {
 		return err
@@ -50,7 +51,7 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 		root = &Node{
 			ID:       rootid,
 			Children: make(map[uint32]*Node),
-			Subs:     make(map[string][]*SubGroup),
+			// Subs:     make(map[string][]*SubGroup),
 		}
 		sublock.Lock()
 		st.Roots[rootid] = root
@@ -66,7 +67,7 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 			child = &Node{
 				ID:       tid,
 				Children: make(map[uint32]*Node),
-				Subs:     make(map[string][]*SubGroup),
+				// Subs:     make(map[string][]*SubGroup),
 			}
 			sublock.Lock()
 			curr.Children[tid] = child
@@ -76,9 +77,7 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 		curr = child
 		// if encounters the last node in the tree branch, we should add topic to the subs of this node
 		if tid == last {
-			sublock.RLock()
-			t1, ok := curr.Subs[t]
-			sublock.RUnlock()
+			curr.Topic = topic
 			if !ok {
 				// []group
 				g := &SubGroup{
@@ -90,11 +89,9 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 						},
 					},
 				}
-				sublock.Lock()
-				curr.Subs[t] = []*SubGroup{g}
-				sublock.Unlock()
+				curr.Subs = []*SubGroup{g}
 			} else {
-				for _, g := range t1 {
+				for _, g := range curr.Subs {
 					// group already exist,add to group
 					if bytes.Compare(g.ID, queue) == 0 {
 						g.Sesses = append(g.Sesses, Sess{
@@ -114,9 +111,7 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 						},
 					},
 				}
-				sublock.Lock()
-				curr.Subs[t] = append(curr.Subs[t], g)
-				sublock.Unlock()
+				curr.Subs = append(curr.Subs, g)
 			}
 		}
 	}
@@ -125,56 +120,51 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 }
 
 func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh.PeerName) error {
-	// t := string(topic)
-	// tids, err := parseTopic(topic, true)
-	// if err != nil {
-	// 	return err
-	// }
-	// rootid := tids[0]
-	// last := tids[len(tids)-1]
+	tids, err := parseTopic(topic, true)
+	if err != nil {
+		return err
+	}
+	rootid := tids[0]
+	last := tids[len(tids)-1]
 
-	// sublock.RLock()
-	// root, ok := st.Roots[rootid]
-	// sublock.RUnlock()
+	sublock.RLock()
+	root, ok := st.Roots[rootid]
+	sublock.RUnlock()
 
-	// if !ok {
-	// 	return errors.New("no subscribe info")
-	// }
+	if !ok {
+		return errors.New("no subscribe info")
+	}
 
-	// curr := root
-	// for _, tid := range tids[1:] {
-	// 	sublock.RLock()
-	// 	child, ok := curr.Children[tid]
-	// 	sublock.RUnlock()
-	// 	if !ok {
-	// 		return errors.New("no subscribe info")
-	// 	}
+	curr := root
+	for _, tid := range tids[1:] {
+		sublock.RLock()
+		child, ok := curr.Children[tid]
+		sublock.RUnlock()
+		if !ok {
+			return errors.New("no subscribe info")
+		}
 
-	// 	curr = child
-	// 	// if encounters the last node in the tree branch, we should remove topic in this node
-	// 	if tid == last {
-	// 		t1, ok := ms.bk.subs[t]
-	// 		if !ok {
-	// 			return
-	// 		}
-	// 		for j, g := range t1 {
-	// 			if bytes.Compare(g.ID, group) == 0 {
-	// 				// group exist
-	// 				for i, c := range g.Sesses {
-	// 					if c.Cid == cid && addr == c.Addr {
-	// 						// delete sess
-	// 						g.Sesses = append(g.Sesses[:i], g.Sesses[i+1:]...)
-	// 						if len(g.Sesses) == 0 {
-	// 							//delete group
-	// 							ms.bk.subs[t] = append(ms.bk.subs[t][:j], ms.bk.subs[t][j+1:]...)
-	// 						}
-	// 						return
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
+		curr = child
+		// if encounters the last node in the tree branch, we should remove topic in this node
+		if tid == last {
+			for j, g := range curr.Subs {
+				if bytes.Compare(g.ID, group) == 0 {
+					// group exist
+					for i, c := range g.Sesses {
+						if c.Cid == cid && addr == c.Addr {
+							// delete sess
+							g.Sesses = append(g.Sesses[:i], g.Sesses[i+1:]...)
+							if len(g.Sesses) == 0 {
+								//delete group
+								curr.Subs = append(curr.Subs[:j], curr.Subs[j+1:]...)
+							}
+							break
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -246,22 +236,18 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
 		lastNode = node
 	}
 
-	for _, gs := range lastNode.Subs {
-		for _, g := range gs {
-			s := g.Sesses[rand.Intn(len(g.Sesses))]
-			sesses = append(sesses, s)
-		}
+	for _, g := range lastNode.Subs {
+		s := g.Sesses[rand.Intn(len(g.Sesses))]
+		sesses = append(sesses, s)
 	}
 
 	return sesses, nil
 }
 
 func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
-	for _, gs := range n.Subs {
-		for _, g := range gs {
-			s := g.Sesses[rand.Intn(len(g.Sesses))]
-			*sesses = append(*sesses, s)
-		}
+	for _, g := range n.Subs {
+		s := g.Sesses[rand.Intn(len(g.Sesses))]
+		*sesses = append(*sesses, s)
 	}
 
 	if len(n.Children) == 0 {

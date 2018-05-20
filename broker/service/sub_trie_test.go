@@ -30,12 +30,12 @@ func TestTrieSubAndLookup(t *testing.T) {
 		SubData{[]byte("/a1/b2/c2"), []byte("test1"), 7, mesh.PeerName(2)},
 		SubData{[]byte("/a2/b1/c1"), []byte("test1"), 8, mesh.PeerName(1)},
 	}
-	outputs := []Sess{Sess{mesh.PeerName(2), 2}, Sess{mesh.PeerName(2), 4}, Sess{mesh.PeerName(1), 5}, Sess{mesh.PeerName(2), 6}}
+	outputs := []Sess{Sess{mesh.PeerName(2), 2}, Sess{mesh.PeerName(2), 4}, Sess{mesh.PeerName(1), 5}, Sess{mesh.PeerName(2), 5}, Sess{mesh.PeerName(2), 6}}
 	for _, input := range inputs {
 		st.Subscribe(input.Topic, input.Group, input.Cid, input.Addr)
 	}
 
-	v, _ := st.Lookup([]byte("/a1/+/+/d1"))
+	v, _ := st.Lookup([]byte("/a1/+/c1"))
 	assert.Equal(t, outputs, v)
 }
 
@@ -59,9 +59,37 @@ func TestTrieSubAndLookupExactly(t *testing.T) {
 	assert.Equal(t, outputs, v)
 }
 
+func TestTrieUnsubAndLookup(t *testing.T) {
+	st := NewSubTrie()
+	inputs := []SubData{
+		SubData{[]byte("/a1/b1/c1"), []byte("test1"), 1, mesh.PeerName(1)},
+		SubData{[]byte("/a1/b1/c1"), []byte("test1"), 2, mesh.PeerName(2)},
+		SubData{[]byte("/a1/b1/c1"), []byte("test2"), 3, mesh.PeerName(1)},
+		SubData{[]byte("/a1/b1/c1"), []byte("test2"), 4, mesh.PeerName(2)},
+		SubData{[]byte("/a1/b1/c1/d1/e1"), []byte("test1"), 5, mesh.PeerName(1)},
+		SubData{[]byte("/a1/b1/c1/d1/e2"), []byte("test1"), 5, mesh.PeerName(2)},
+		SubData{[]byte("/a1/b2/c1"), []byte("test2"), 6, mesh.PeerName(2)},
+		SubData{[]byte("/a1/b2/c2"), []byte("test1"), 7, mesh.PeerName(2)},
+		SubData{[]byte("/a2/b1/c1"), []byte("test1"), 8, mesh.PeerName(1)},
+	}
+
+	for _, input := range inputs {
+		st.Subscribe(input.Topic, input.Group, input.Cid, input.Addr)
+	}
+
+	unsubdata := inputs[4]
+	st.UnSubscribe(unsubdata.Topic, unsubdata.Group, unsubdata.Cid, unsubdata.Addr)
+	unsubdata = inputs[3]
+	st.UnSubscribe(unsubdata.Topic, unsubdata.Group, unsubdata.Cid, unsubdata.Addr)
+
+	outputs := []Sess{Sess{mesh.PeerName(2), 2}, Sess{mesh.PeerName(1), 3}, Sess{mesh.PeerName(2), 5}, Sess{mesh.PeerName(2), 6}}
+
+	v, _ := st.Lookup([]byte("/a1/+/c1"))
+	assert.Equal(t, outputs, v)
+}
+
 func BenchmarkTrieSubscribe(b *testing.B) {
 	st := NewSubTrie()
-	populateSubs(st)
 
 	b.ReportAllocs()
 	b.ResetTimer()
