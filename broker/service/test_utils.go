@@ -26,7 +26,7 @@ func populateSubs(st *SubTrie) {
 	for i := 1; i <= 10; i++ {
 		for j := 1; j <= 4; j++ {
 			for k := 1; k <= 10; k++ {
-				for l := 1; l <= 5000; l++ {
+				for l := 1; l <= 1000; l++ {
 					n++
 					topic := []byte(fmt.Sprintf("/test/g1/%d/b1/%d/%d/%d", i, j, k, l))
 					queue := []byte("test1")

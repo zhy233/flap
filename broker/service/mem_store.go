@@ -26,13 +26,13 @@ type MemStore struct {
 	bk    *Broker
 	cache []*proto.PubMsg
 
-	ackCache [][]byte
+	ackCache []proto.Ack
 
 	//cluster
 	send         mesh.Gossip
 	pn           mesh.PeerName
 	msgSyncCache []*proto.PubMsg
-	ackSyncCache [][]byte
+	ackSyncCache []proto.Ack
 
 	topicProps TopicProps
 	sync.RWMutex
@@ -58,12 +58,12 @@ func (ms *MemStore) Init() {
 	ms.DBIDIndex = make(map[string]string)
 	ms.cache = make([]*proto.PubMsg, 0, MaxCacheLength)
 	ms.msgSyncCache = make([]*proto.PubMsg, 0, MaxSyncMsgLen)
-	ms.ackSyncCache = make([][]byte, 0, MaxSyncAckLen)
+	ms.ackSyncCache = make([]proto.Ack, 0, MaxSyncAckLen)
 	ms.topicProps = make(TopicProps)
 	// message queue like topic
 	// ms.topicProps["/test/mq"] = proto.TopicProp{true, true, proto.TopicPropAckDel, proto.TopicPropGetFilterAck}
 	// message push topic
-	ms.topicProps["/test/mp"] = proto.TopicProp{false, false, proto.TopicPropAckDel, proto.TopicPropGetAll}
+	ms.topicProps["/test/mp"] = proto.TopicProp{[]byte("/test/mp"), false, false, proto.TopicPropAckDel, proto.TopicPropGetAll}
 
 	go func() {
 		ms.bk.wg.Add(1)
@@ -105,7 +105,7 @@ func (ms *MemStore) Init() {
 				if len(ms.ackSyncCache) > 0 {
 					ms.Lock()
 					m := proto.PackAck(ms.ackSyncCache, MEM_MSG_ACK)
-					ms.ackSyncCache = make([][]byte, 0, MAX_CHANNEL_LEN)
+					ms.ackSyncCache = make([]proto.Ack, 0, MAX_CHANNEL_LEN)
 					ms.Unlock()
 
 					ms.send.GossipBroadcast(MemMsg(m))
@@ -148,11 +148,11 @@ func (ms *MemStore) Put(msgs []*proto.PubMsg) {
 	}
 }
 
-func (ms *MemStore) ACK(msgids [][]byte) {
-	if len(msgids) > 0 {
+func (ms *MemStore) ACK(acks []proto.Ack) {
+	if len(acks) > 0 {
 		ms.Lock()
-		ms.ackCache = append(ms.ackCache, msgids...)
-		ms.ackSyncCache = append(ms.ackSyncCache, msgids...)
+		ms.ackCache = append(ms.ackCache, acks...)
+		ms.ackSyncCache = append(ms.ackSyncCache, acks...)
 		ms.Unlock()
 	}
 }
@@ -376,10 +376,10 @@ func (ms *MemStore) FlushAck() {
 	}
 
 	temp := ms.ackCache
-	for _, msgid := range temp {
+	for _, ack := range temp {
 		// lookup topic
 		ms.RLock()
-		t, ok := ms.DBIDIndex[string(msgid)]
+		t, ok := ms.DBIDIndex[string(ack.Msgid)]
 		if !ok {
 			ms.RUnlock()
 			// newCache = append(newCache, msgid)
@@ -387,7 +387,7 @@ func (ms *MemStore) FlushAck() {
 		}
 
 		// set message status to acked
-		msg := ms.DB[t][string(msgid)]
+		msg := ms.DB[t][string(ack.Msgid)]
 		ms.RUnlock()
 		msg.Acked = true
 	}

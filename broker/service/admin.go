@@ -16,7 +16,7 @@ func (ad *admin) Init(bk *Broker) {
 
 	e := echo.New()
 	e.POST("/admin/create/topic", ad.createTopic)
-	e.Logger.Fatal(e.Start(Conf.Admin.Addr))
+	e.Logger.Fatal(e.Start(ad.bk.conf.Admin.Addr))
 }
 
 func (ad *admin) createTopic(c echo.Context) error {
@@ -56,7 +56,7 @@ func (ad *admin) createTopic(c echo.Context) error {
 		return c.String(200, "topic invalid")
 	}
 
-	err = ad.bk.store.SetTopicProp([]byte(topic), proto.TopicProp{isPush, fromOldest, int8(ackStrategy), int8(getMsgStrategy)})
+	err = ad.bk.store.SetTopicProp([]byte(topic), proto.TopicProp{[]byte(topic), isPush, fromOldest, int8(ackStrategy), int8(getMsgStrategy)})
 	if err != nil {
 		return c.String(200, err.Error())
 	}

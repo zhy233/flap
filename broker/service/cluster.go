@@ -27,12 +27,12 @@ type cluster struct {
 func (c *cluster) Init() {
 	c.closed = make(chan struct{})
 	peers := stringset{}
-	hwaddr := Conf.Cluster.HwAddr
-	meshListen := net.JoinHostPort("0.0.0.0", Conf.Cluster.Port)
+	hwaddr := c.bk.conf.Cluster.HwAddr
+	meshListen := net.JoinHostPort("0.0.0.0", c.bk.conf.Cluster.Port)
 	channel := "default"
 	nickname := mustHostname()
 
-	for _, peer := range Conf.Cluster.SeedPeers {
+	for _, peer := range c.bk.conf.Cluster.SeedPeers {
 		peers[peer] = struct{}{}
 	}
 

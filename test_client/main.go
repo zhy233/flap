@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/chaingod/talent"
+	meq "github.com/meqio/go-meq"
 	"github.com/meqio/meq/proto"
 )
 
-var topic = "/test/mp/1"
+var topic = "/test/+/1"
 var host = "localhost:"
 
 var op = flag.String("op", "", "")
@@ -33,36 +33,27 @@ func main() {
 	case "pub":
 		pub(conns)
 	case "pub_timer":
-		pubTimer(conns[0])
+		// pubTimer(conns[0])
 	case "sub":
 		sub(conns[0])
 	}
 }
 
-func connect() []net.Conn {
+func connect() []*meq.Connection {
 	n := 0
-	var conns []net.Conn
+	var conns []*meq.Connection
 	for {
 		if n >= *thread {
 			break
 		}
-		conn, err := net.Dial("tcp", host+*port)
+
+		conf := &meq.ConfigOption{
+			Hosts: []string{host + *port},
+		}
+		conn, err := meq.Connect(conf)
 		if err != nil {
 			panic(err)
 		}
-		msg := proto.PackConnect()
-		conn.Write(msg)
-
-		_, err = talent.ReadFull(conn, msg, 0)
-		if err != nil {
-			panic(err)
-		}
-
-		if msg[4] != proto.MSG_CONNECT_OK {
-			panic("connect failed")
-		}
-		go ping(conn)
-
 		conns = append(conns, conn)
 		n++
 	}

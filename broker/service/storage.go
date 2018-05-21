@@ -9,7 +9,7 @@ type Storage interface {
 	Close()
 
 	Put([]*proto.PubMsg)
-	ACK([][]byte)
+	ACK([]proto.Ack)
 
 	Get([]byte, int, []byte, proto.TopicProp) []*proto.PubMsg
 	GetCount([]byte) int

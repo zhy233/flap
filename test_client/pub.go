@@ -1,29 +1,26 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
-	"net"
 	"sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/chaingod/talent"
+	meq "github.com/meqio/go-meq"
 	"github.com/meqio/meq/proto"
 )
 
-func pub(conns []net.Conn) {
+func pub(conns []*meq.Connection) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(conns))
 
 	var pushed int64
 	for i, conn := range conns {
-		go func(i int, conn net.Conn) {
+		go func(i int, conn *meq.Connection) {
 			defer wg.Done()
 			n := 1
 			cache := make([]*proto.PubMsg, 0, 10000)
 			for {
-				if n > 5000000 {
+				if n > 100000 {
 					break
 				}
 				// 27
@@ -34,59 +31,36 @@ func pub(conns []net.Conn) {
 					Type:    1,
 					QoS:     1,
 				}
-				if len(cache) < 1500 {
+				if len(cache) < 500 {
 					cache = append(cache, m)
 				} else {
 					cache = append(cache, m)
-					msg := proto.PackPubMsgs(cache, proto.MSG_PUB)
-					_, err := conn.Write(msg)
-					if err != nil {
-						panic(err)
-					}
+					conn.Publish(cache)
 					atomic.AddInt64(&pushed, int64(len(cache)))
 					cache = cache[:0]
 				}
 				n++
 			}
 		}(i, conn)
+		wg.Wait()
 
-		go func(conn net.Conn) {
-			for {
-				header := make([]byte, 4)
-				_, err := talent.ReadFull(conn, header, 0)
-				if err != nil {
-					panic(err)
-				}
-
-				hl, _ := binary.Uvarint(header)
-				if hl <= 0 {
-					fmt.Println("here1111:", header, hl)
-					break
-				}
-				msg := make([]byte, hl)
-				talent.ReadFull(conn, msg, 0)
-			}
-		}(conn)
+		fmt.Println("共计推送消息：", pushed)
 	}
-
-	wg.Wait()
-
-	fmt.Println("共计推送消息：", pushed)
 }
 
-func pubTimer(conn net.Conn) {
+// func pubTimer(conn net.Conn) {
 
-	m := proto.TimerMsg{
-		ID:      []byte(fmt.Sprintf("%010d", 1)),
-		Topic:   []byte(topic),
-		Payload: []byte("1234567891234567"),
-		Trigger: time.Now().Add(60 * time.Second).Unix(),
-		Delay:   30,
-	}
-	msg := proto.PackTimerMsg(&m, proto.MSG_PUB_RESTORE)
-	_, err := conn.Write(msg)
-	if err != nil {
-		panic(err)
-	}
+// 	m := proto.TimerMsg{
+// 		ID:      []byte(fmt.Sprintf("%010d", 1)),
+// 		Topic:   []byte(topic),
+// 		Payload: []byte("1234567891234567"),
+// 		Trigger: time.Now().Add(60 * time.Second).Unix(),
+// 		Delay:   30,
+// 	}
+// 	msg := proto.PackTimerMsg(&m, proto.MSG_PUB_RESTORE)
+// 	_, err := conn.Write(msg)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-}
+// }

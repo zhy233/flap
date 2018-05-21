@@ -34,16 +34,17 @@ type Config struct {
 	}
 }
 
-var Conf = &Config{}
-
-func InitConfig() {
+func initConfig() *Config {
+	conf := &Config{}
 	data, err := ioutil.ReadFile("broker.yaml")
 	if err != nil {
 		log.Fatal("read config error :", err)
 	}
 
-	err = yaml.Unmarshal(data, &Conf)
+	err = yaml.Unmarshal(data, &conf)
 	if err != nil {
 		log.Fatal("yaml decode error :", err)
 	}
+
+	return conf
 }

@@ -2,18 +2,23 @@ package proto
 
 const (
 	MSG_PUB           = 'a'
-	MSG_SUB           = 'b'
-	MSG_PUBACK        = 'c'
-	MSG_PING          = 'd'
-	MSG_PONG          = 'e'
-	MSG_UNSUB         = 'f'
-	MSG_COUNT         = 'g'
-	MSG_PULL          = 'h'
-	MSG_CONNECT       = 'i'
-	MSG_CONNECT_OK    = 'j'
-	MSG_PUB_TIMER     = 'k'
-	MSG_PUB_TIMER_ACK = 'l'
-	MSG_PUB_RESTORE   = 'm'
+	MSG_PUBACK        = 'b'
+	MSG_PUB_TIMER     = 'c'
+	MSG_PUB_TIMER_ACK = 'd'
+	MSG_PUB_RESTORE   = 'e'
+
+	MSG_SUB    = 'f'
+	MSG_SUBACK = 'g'
+	MSG_UNSUB  = 'h'
+
+	MSG_PING = 'i'
+	MSG_PONG = 'j'
+
+	MSG_COUNT = 'k'
+	MSG_PULL  = 'l'
+
+	MSG_CONNECT    = 'm'
+	MSG_CONNECT_OK = 'n'
 )
 
 const (

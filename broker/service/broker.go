@@ -29,6 +29,8 @@ type Broker struct {
 
 	subtrie   *SubTrie
 	subSynced bool
+
+	conf *Config
 	sync.RWMutex
 }
 
@@ -39,8 +41,8 @@ func NewBroker() *Broker {
 		subtrie: NewSubTrie(),
 	}
 	// init base config
-	InitConfig()
-	InitLogger(Conf.Common.LogPath, Conf.Common.LogLevel, Conf.Common.IsDebug)
+	b.conf = initConfig()
+	InitLogger(b.conf.Common.LogPath, b.conf.Common.LogLevel, b.conf.Common.IsDebug)
 	L.Info("base configuration loaded")
 
 	return b
@@ -48,7 +50,7 @@ func NewBroker() *Broker {
 
 func (b *Broker) Start() {
 
-	addr := net.JoinHostPort(Conf.Broker.Host, Conf.Broker.Port)
+	addr := net.JoinHostPort(b.conf.Broker.Host, b.conf.Broker.Port)
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		L.Fatal("Fatal error when listening", zap.Error(err), zap.String("addr", addr))
@@ -61,7 +63,7 @@ func (b *Broker) Start() {
 	b.runningTime = time.Now()
 
 	// init store
-	switch Conf.Store.Engine {
+	switch b.conf.Store.Engine {
 	case "memory":
 		b.store = &MemStore{
 			bk: b,

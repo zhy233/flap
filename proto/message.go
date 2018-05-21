@@ -16,3 +16,8 @@ type TimerMsg struct {
 	Trigger int64
 	Delay   int
 }
+
+type Ack struct {
+	Topic []byte
+	Msgid []byte
+}

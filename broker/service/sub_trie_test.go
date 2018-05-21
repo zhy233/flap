@@ -118,7 +118,7 @@ func BenchmarkTrieLookup(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 
-	t := []byte("/test/g1/1/b1/1/1")
+	t := []byte("/test/g1/1/b1/1")
 	for i := 0; i < b.N; i++ {
 		v, err := st.Lookup(t)
 		if err != nil {

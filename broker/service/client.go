@@ -24,7 +24,7 @@ type client struct {
 	bk   *Broker
 
 	msgSender chan []*proto.PubMsg
-	ackSender chan [][]byte
+	ackSender chan []proto.Ack
 
 	subs map[string][]byte
 
@@ -37,7 +37,7 @@ func initClient(cid uint64, conn net.Conn, bk *Broker) *client {
 		conn:      conn,
 		bk:        bk,
 		msgSender: make(chan []*proto.PubMsg, MAX_CHANNEL_LEN),
-		ackSender: make(chan [][]byte, MAX_CHANNEL_LEN),
+		ackSender: make(chan []proto.Ack, MAX_CHANNEL_LEN),
 		subs:      make(map[string][]byte),
 	}
 }
@@ -92,10 +92,10 @@ func (c *client) readLoop() error {
 			pushOnline(c.cid, c.bk, ms)
 
 			// ack the msgs to client of sender
-			var acks [][]byte
+			var acks []proto.Ack
 			for _, m := range ms {
 				if m.QoS == proto.QOS1 {
-					acks = append(acks, m.ID)
+					acks = append(acks, proto.Ack{m.Topic, m.ID})
 				}
 			}
 			c.ackSender <- acks
@@ -107,7 +107,7 @@ func (c *client) readLoop() error {
 			}
 			//Check to see if the topic created.
 
-			prop, ok := c.bk.store.GetTopicProp(getTopicPrefix(topic))
+			prop, ok := c.bk.store.GetTopicProp(proto.GetTopicPrefix(topic))
 			if !ok {
 				L.Info("sub topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
 				return nil
@@ -119,18 +119,24 @@ func (c *client) readLoop() error {
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 
 			c.subs[string(topic)] = group
+
+			// write back the suback
+			sa := proto.PackSubAck(prop)
+			c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
+			c.conn.Write(sa)
+
+			// push out the count of the unread messages
+			count := c.bk.store.GetCount(topic)
+			msg := proto.PackMsgCount(topic, count)
+			c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
+			c.conn.Write(msg)
+
 			if prop.PushMsgWhenSub {
 				// push out the stored messages
 				msgs := c.bk.store.Get(topic, 0, proto.MSG_NEWEST_OFFSET, prop)
 				if len(msgs) > 0 {
 					c.msgSender <- msgs
 				}
-			} else {
-				// push out the count of the stored messages
-				count := c.bk.store.GetCount(topic)
-				msg := proto.PackMsgCount(topic, count)
-				c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
-				c.conn.Write(msg)
 			}
 		case proto.MSG_UNSUB: // clients unsubscribe the specify topic
 			topic, group := proto.UnpackSub(buf[1:])
@@ -147,9 +153,9 @@ func (c *client) readLoop() error {
 			delete(c.subs, string(topic))
 
 		case proto.MSG_PUBACK: // clients receive the publish message
-			msgids := proto.UnpackAck(buf[1:])
+			acks := proto.UnpackAck(buf[1:])
 			// ack the message
-			c.bk.store.ACK(msgids)
+			c.bk.store.ACK(acks)
 		case proto.MSG_PING: // receive client's 'ping', respond with 'pong'
 			msg := proto.PackPong()
 			c.conn.SetWriteDeadline(time.Now().Add(WRITE_DEADLINE))
@@ -163,7 +169,7 @@ func (c *client) readLoop() error {
 			}
 
 			//Check to see if the topic created and get the topic prop
-			prop, ok := c.bk.store.GetTopicProp(getTopicPrefix(topic))
+			prop, ok := c.bk.store.GetTopicProp(proto.GetTopicPrefix(topic))
 			if !ok {
 				L.Info("pull topic is not created", zap.ByteString("topic", topic), zap.Uint64("cid", c.cid))
 				return nil
@@ -191,7 +197,7 @@ func (c *client) readLoop() error {
 			}
 
 			// ack the timer msg
-			c.ackSender <- [][]byte{m.ID}
+			c.ackSender <- []proto.Ack{proto.Ack{m.Topic, m.ID}}
 		}
 	}
 
@@ -200,7 +206,7 @@ func (c *client) readLoop() error {
 
 func (c *client) sendLoop() {
 	scache := make([]*proto.PubMsg, 0, MAX_MESSAGE_BATCH)
-	acache := make([][]byte, 0, MAX_CHANNEL_LEN)
+	acache := make([]proto.Ack, 0, MAX_CHANNEL_LEN)
 	defer func() {
 		c.closed = true
 		c.conn.Close()

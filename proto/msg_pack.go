@@ -102,40 +102,89 @@ func UnpackSub(b []byte) ([]byte, []byte) {
 	return b[2 : 2+tl], b[2+tl:]
 }
 
-func PackAck(msgids [][]byte, cmd byte) []byte {
-	body := PackAckBody(msgids, cmd)
+func PackSubAck(tp TopicProp) []byte {
+	tl := uint64(len(tp.Topic))
+	msg := make([]byte, 4+1+4+tl)
+	binary.PutUvarint(msg[:4], 1+4+tl)
+	msg[4] = MSG_SUBACK
+
+	pm := 0
+	if tp.PushMsgWhenSub {
+		pm = 1
+	}
+	binary.PutUvarint(msg[5:6], uint64(pm))
+
+	gm := 0
+	if tp.GetMsgFromOldestToNewest {
+		gm = 1
+	}
+	binary.PutUvarint(msg[6:7], uint64(gm))
+
+	binary.PutUvarint(msg[7:8], uint64(tp.AckStrategy))
+	binary.PutUvarint(msg[8:9], uint64(tp.GetMsgStrategy))
+
+	copy(msg[9:], tp.Topic)
+
+	return msg
+}
+
+func UnpackSubAck(b []byte) (tp TopicProp) {
+	pm, _ := binary.Uvarint(b[0:1])
+	if pm == 1 {
+		tp.PushMsgWhenSub = true
+	}
+	gm, _ := binary.Uvarint(b[1:2])
+	if gm == 1 {
+		tp.GetMsgFromOldestToNewest = true
+	}
+
+	as, _ := binary.Uvarint(b[2:3])
+	tp.AckStrategy = int8(as)
+
+	gs, _ := binary.Uvarint(b[3:4])
+	tp.GetMsgStrategy = int8(gs)
+
+	tp.Topic = b[4:]
+	return
+}
+
+func PackAck(acks []Ack, cmd byte) []byte {
+	body := PackAckBody(acks, cmd)
 	msg := make([]byte, len(body)+4)
 	binary.PutUvarint(msg[:4], uint64(len(body)))
 	copy(msg[4:], body)
 	return msg
 }
 
-func PackAckBody(msgids [][]byte, cmd byte) []byte {
-	total := 1 + 4 + 2*len(msgids)
-	for _, msgid := range msgids {
-		total += len(msgid)
+func PackAckBody(acks []Ack, cmd byte) []byte {
+	total := 1 + 4 + 4*len(acks)
+	for _, ack := range acks {
+		total += (len(ack.Msgid) + len(ack.Topic))
 	}
 
 	body := make([]byte, total)
 	// command
 	body[0] = cmd
 	// msgs count
-	binary.PutUvarint(body[1:5], uint64(len(msgids)))
+	binary.PutUvarint(body[1:5], uint64(len(acks)))
 
 	last := 5
-	for _, msgid := range msgids {
-		ml := len(msgid)
+	for _, ack := range acks {
+		ml := len(ack.Msgid)
+		tl := len(ack.Topic)
 		binary.PutUvarint(body[last:last+2], uint64(ml))
-		copy(body[last+2:last+2+ml], msgid)
-		last = last + 2 + ml
+		copy(body[last+2:last+2+ml], ack.Msgid)
+		binary.PutUvarint(body[last+2+ml:last+4+ml], uint64(tl))
+		copy(body[last+4+ml:last+4+ml+tl], ack.Topic)
+		last = last + 4 + ml + tl
 	}
 
 	return body
 }
 
-func UnpackAck(b []byte) [][]byte {
+func UnpackAck(b []byte) []Ack {
 	msl, _ := binary.Uvarint(b[:4])
-	msgids := make([][]byte, msl)
+	acks := make([]Ack, msl)
 
 	var last uint64 = 4
 	index := 0
@@ -144,15 +193,21 @@ func UnpackAck(b []byte) [][]byte {
 		if last >= bl {
 			break
 		}
+		ack := Ack{}
+
 		ml, _ := binary.Uvarint(b[last : last+2])
-		msgid := b[last+2 : last+2+ml]
-		msgids[index] = msgid
+		ack.Msgid = b[last+2 : last+2+ml]
+
+		tl, _ := binary.Uvarint(b[last+2+ml : last+4+ml])
+		ack.Topic = b[last+4+ml : last+4+ml+tl]
+
+		acks[index] = ack
 
 		index++
-		last = last + 2 + ml
+		last = last + 4 + ml + tl
 	}
 
-	return msgids
+	return acks
 }
 
 func PackPing() []byte {

@@ -41,15 +41,16 @@ func TestSubPackUnpack(t *testing.T) {
 }
 
 func TestAckPackUnpack(t *testing.T) {
-	var msgids [][]byte
+	var acks []Ack
 	for _, m := range mockMsgs {
-		msgids = append(msgids, m.ID)
+		acks = append(acks, Ack{m.Topic, m.ID})
 	}
 
-	packed := PackAck(msgids, MSG_PUBACK)
+	packed := PackAck(acks, MSG_PUBACK)
 	unpacked := UnpackAck(packed[5:])
 
-	assert.Equal(t, msgids, unpacked)
+	t.Error(unpacked)
+	assert.Equal(t, acks, unpacked)
 }
 
 func TestMsgCountPackUnpack(t *testing.T) {
@@ -84,6 +85,14 @@ func TestTimerMsgPackUnpack(t *testing.T) {
 	assert.Equal(t, tmsg, unpacked)
 }
 
+func TestSubAckPackUnpack(t *testing.T) {
+	tp := TopicProp{[]byte("test"), true, true, 1, 1}
+	packed := PackSubAck(tp)
+	unpacked := UnpackSubAck(packed[5:])
+
+	assert.Equal(t, tp, unpacked)
+}
+
 func BenchmarkPubMsgPack(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -100,33 +109,5 @@ func BenchmarkPubMsgUnpack(b *testing.B) {
 	packed := PackPubMsgs(mockMsgs, MSG_PUB)
 	for i := 0; i < b.N; i++ {
 		UnpackPubMsgs(packed[5:])
-	}
-}
-
-func BenchmarkAckPack(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	var msgids [][]byte
-	for _, m := range mockMsgs {
-		msgids = append(msgids, m.ID)
-	}
-
-	for i := 0; i < b.N; i++ {
-		PackAck(msgids, MSG_PUBACK)
-	}
-}
-
-func BenchmarkAckUnpack(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	var msgids [][]byte
-	for _, m := range mockMsgs {
-		msgids = append(msgids, m.ID)
-	}
-	packed := PackAck(msgids, MSG_PUBACK)
-	for i := 0; i < b.N; i++ {
-		UnpackAck(packed[5:])
 	}
 }
