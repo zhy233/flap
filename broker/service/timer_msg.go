@@ -31,7 +31,7 @@ func (t *Timer) Init() {
 			case <-time.NewTicker(2 * time.Second).C:
 				msgs := t.bk.store.GetTimerMsg()
 				if len(msgs) > 0 {
-					pushOnline(0, t.bk, msgs)
+					pushOnline(0, t.bk, msgs, false)
 				}
 			case <-t.close:
 				return

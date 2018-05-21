@@ -51,7 +51,7 @@ func (ad *admin) createTopic(c echo.Context) error {
 		return c.String(200, "ack strategy invalid")
 	}
 
-	_, err = parseTopic([]byte(topic), true)
+	_, err = proto.ParseTopic([]byte(topic), true)
 	if err != nil {
 		return c.String(200, "topic invalid")
 	}

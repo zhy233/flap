@@ -78,7 +78,7 @@ func (c *client) readLoop() error {
 		switch buf[0] {
 		case proto.MSG_CONNECT:
 
-		case proto.MSG_PUB: // clients publish the message
+		case proto.MSG_PUB: // clients publish  messages to a concrete topic
 			ms, err := proto.UnpackPubMsgs(buf[1:])
 			if err != nil {
 				return err
@@ -89,7 +89,7 @@ func (c *client) readLoop() error {
 			// save the messages
 			c.bk.store.Put(ms)
 			// push to online clients in all nodes
-			pushOnline(c.cid, c.bk, ms)
+			pushOnline(c.cid, c.bk, ms, false)
 
 			// ack the msgs to client of sender
 			var acks []proto.Ack
@@ -99,7 +99,12 @@ func (c *client) readLoop() error {
 				}
 			}
 			c.ackSender <- acks
-
+		case proto.MSG_BROADCAST: // clients publish messges to a broadcast topic
+			ms, err := proto.UnpackPubMsgs(buf[1:])
+			if err != nil {
+				return err
+			}
+			pushOnline(c.cid, c.bk, ms, true)
 		case proto.MSG_SUB: // clients subscribe the specify topic
 			topic, group := proto.UnpackSub(buf[1:])
 			if (topic == nil) && (len(group) == 0) {

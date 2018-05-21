@@ -33,6 +33,11 @@ type Sess struct {
 	Cid  uint64
 }
 
+type TopicSess struct {
+	Topic []byte
+	Sess  Sess
+}
+
 const subCacheLen = 1000
 
 var subCache = make(map[string]int)
@@ -49,7 +54,7 @@ func NewSubTrie() *SubTrie {
 }
 
 func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.PeerName) error {
-	tids, err := parseTopic(topic, true)
+	tids, err := proto.ParseTopic(topic, true)
 	if err != nil {
 		return err
 	}
@@ -133,7 +138,7 @@ func (st *SubTrie) Subscribe(topic []byte, queue []byte, cid uint64, addr mesh.P
 }
 
 func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh.PeerName) error {
-	tids, err := parseTopic(topic, true)
+	tids, err := proto.ParseTopic(topic, true)
 	if err != nil {
 		return err
 	}
@@ -184,22 +189,22 @@ func (st *SubTrie) UnSubscribe(topic []byte, group []byte, cid uint64, addr mesh
 
 //@todo
 // add query cache for heavy lookup
-func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
+func (st *SubTrie) Lookup(topic []byte) ([]TopicSess, error) {
 	t := string(topic)
 
-	tids, err := parseTopic(topic, false)
+	tids, err := proto.ParseTopic(topic, false)
 	if err != nil {
 		return nil, err
 	}
 
-	var sesses []Sess
+	var sesses []TopicSess
 	sublock.RLock()
 	cl, ok := subCache[t]
 	sublock.RUnlock()
 	if ok {
-		sesses = make([]Sess, 0, cl+100)
+		sesses = make([]TopicSess, 0, cl+100)
 	} else {
-		sesses = make([]Sess, 0, 10)
+		sesses = make([]TopicSess, 0, 10)
 	}
 
 	rootid := tids[0]
@@ -241,13 +246,13 @@ func (st *SubTrie) Lookup(topic []byte) ([]Sess, error) {
 	return sesses, nil
 }
 
-func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
-	tids, err := parseTopic(topic, true)
+func (st *SubTrie) LookupExactly(topic []byte) ([]TopicSess, error) {
+	tids, err := proto.ParseTopic(topic, true)
 	if err != nil {
 		return nil, err
 	}
 
-	var sesses []Sess
+	var sesses []TopicSess
 	rootid := tids[0]
 
 	sublock.RLock()
@@ -273,13 +278,13 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]Sess, error) {
 
 	for _, g := range lastNode.Subs {
 		s := g.Sesses[rand.Intn(len(g.Sesses))]
-		sesses = append(sesses, s)
+		sesses = append(sesses, TopicSess{lastNode.Topic, s})
 	}
 
 	return sesses, nil
 }
 
-func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
+func (st *SubTrie) findSesses(n *Node, sesses *[]TopicSess) {
 	//@performance 50% time used here
 	for _, g := range n.Subs {
 		//@performance 随机数消耗30毫秒
@@ -290,11 +295,11 @@ func (st *SubTrie) findSesses(n *Node, sesses *[]Sess) {
 			s = g.Sesses[rand.Intn(len(g.Sesses))]
 		}
 		if cap(*sesses) == len(*sesses) {
-			temp := make([]Sess, len(*sesses), cap(*sesses)*6)
+			temp := make([]TopicSess, len(*sesses), cap(*sesses)*6)
 			copy(temp, *sesses)
 			*sesses = temp
 		}
-		*sesses = append(*sesses, s)
+		*sesses = append(*sesses, TopicSess{n.Topic, s})
 	}
 
 	if len(n.Children) == 0 {

@@ -19,6 +19,8 @@ const (
 
 	MSG_CONNECT    = 'm'
 	MSG_CONNECT_OK = 'n'
+
+	MSG_BROADCAST = 'o'
 )
 
 const (

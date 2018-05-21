@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/meqio/meq/proto"
-	"go.uber.org/zap"
 )
 
 type pushPacket struct {
@@ -13,7 +12,7 @@ type pushPacket struct {
 	from uint64
 }
 
-func pushOnline(from uint64, bk *Broker, msgs []*proto.PubMsg) {
+func pushOnline(from uint64, bk *Broker, msgs []*proto.PubMsg, broadcast bool) {
 	topics := make(map[string][]*proto.PubMsg)
 	for _, msg := range msgs {
 		t := string(msg.Topic)
@@ -21,28 +20,40 @@ func pushOnline(from uint64, bk *Broker, msgs []*proto.PubMsg) {
 	}
 
 	for t, msgs := range topics {
-		sesses, err := bk.subtrie.Lookup([]byte(t))
+		var sesses []TopicSess
+		var err error
+		if broadcast {
+			sesses, err = bk.subtrie.Lookup([]byte(t))
+		} else {
+			sesses, err = bk.subtrie.LookupExactly([]byte(t))
+		}
+
 		if err != nil {
-			L.Info("sub trie lookup error", zap.Error(err), zap.String("topic", t))
 			continue
 		}
 		for _, sess := range sesses {
-			if sess.Addr == bk.cluster.peer.name {
-				if sess.Cid == from {
+			if broadcast { // change the topic to the concrete subscrite topic
+				for _, m := range msgs {
+					m.Topic = sess.Topic
+				}
+			}
+
+			if sess.Sess.Addr == bk.cluster.peer.name {
+				if sess.Sess.Cid == from {
 					continue
 				}
 				bk.RLock()
-				c, ok := bk.clients[sess.Cid]
+				c, ok := bk.clients[sess.Sess.Cid]
 				bk.RUnlock()
 				if !ok {
 					bk.Lock()
-					delete(bk.clients, sess.Cid)
+					delete(bk.clients, sess.Sess.Cid)
 					bk.Unlock()
 				} else {
 					c.msgSender <- msgs
 				}
 			} else {
-				bk.router.route(sess, msgs)
+				bk.router.route(sess.Sess, msgs)
 			}
 		}
 	}
