@@ -27,6 +27,9 @@ CentOS6: https://www.foundationdb.org/downloads/5.1.7/rhel6/installers/foundatio
 
 Other Os: https://www.foundationdb.org/download/ (Please choose version 5.1.7)
 
+### Install foundationdb server(optional,only needed when you use fdb store mode)
+CentOS7: https://www.foundationdb.org/downloads/5.1.7/rhel7/installers/foundationdb-server-5.1.7-1.el7.x86_64.rpm
+
 ### Start MeQ
 ```bash
 > go get github.com/mafanr/meq

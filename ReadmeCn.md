@@ -13,6 +13,8 @@ MeQ的目标是成为世界上最好的消息平台，就像手机中的Iphone�
      <img  width="200" src="./logo.png"></a>
 </p>
 
+### Project status
+Still in active developing, 2018-08-16
 
 聊天室例子
 ------------
@@ -24,6 +26,8 @@ Centos7: https://www.foundationdb.org/downloads/5.1.7/rhel7/installers/foundatio
 Centos6: https://www.foundationdb.org/downloads/5.1.7/rhel6/installers/foundationdb-clients-5.1.7-1.el6.x86_64.rpm
 
 其它操作系统 : https://www.foundationdb.org/download/  (请选择5.1.7版本)
+### 安装foundationDB服务器端(可选，只有你使用了fdb的存储模式时，才需要)
+CentOS7: https://www.foundationdb.org/downloads/5.1.7/rhel7/installers/foundationdb-server-5.1.7-1.el7.x86_64.rpm
 
 ### 启动MeQ
 ```bash
