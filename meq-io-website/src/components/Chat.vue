@@ -110,7 +110,7 @@ export default {
        var _this = this;
       var m = meq.connect({
         //   47.91.140.160
-        host: "47.90.4.50",
+        host: "47.91.140.160",
         port: 9008,
         username: _this.username
       });
