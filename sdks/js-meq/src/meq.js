@@ -348,7 +348,9 @@ var Meq = (function() {
 
         this._mqtt.publish(topic,m)
     }
-
+    Meq.prototype.close = function() {
+        this._mqtt.end(true)
+    }
     Meq.prototype.on = function (event, callback) {
         // Validate the type
         switch (event) {

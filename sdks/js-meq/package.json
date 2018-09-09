@@ -1,6 +1,6 @@
 {
   "name": "meq",
-  "version": "0.8.5",
+  "version": "0.8.7",
   "description": "js client for meq.io",
   "main": "src/meq.js",
   "scripts": {
