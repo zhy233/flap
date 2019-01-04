@@ -58,7 +58,7 @@ const (
 /*------------------------------Storage interface implemented------------------------*/
 
 func (f *FdbStore) Init() {
-	fdb.MustAPIVersion(510)
+	fdb.MustAPIVersion(600)
 
 	f.dbs = make([]*database, f.bk.conf.Store.FDB.Threads)
 	f.pubchs = make([](chan []*proto.PubMsg), f.bk.conf.Store.FDB.Threads)
@@ -378,7 +378,7 @@ func put(d *database, msgs []*proto.PubMsg) {
 }
 
 func (f *FdbStore) process(i int) {
-	fdb.MustAPIVersion(510)
+	fdb.MustAPIVersion(600)
 	db := fdb.MustOpenDefault()
 	dir, err := directory.CreateOrOpen(db, []string{f.bk.conf.Store.FDB.Namespace}, nil)
 	if err != nil {
