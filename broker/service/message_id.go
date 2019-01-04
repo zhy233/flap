@@ -17,12 +17,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/mafanr/g"
 )
 
 func StartIDGenerator(b *Broker) {
 	var err error
 	b.idgen, err = snowflake.NewNode(b.conf.Broker.ServerID)
 	if err != nil {
-		L.Fatal("start id generator error", zap.Error(err))
+		g.L.Fatal("start id generator error", zap.Error(err))
 	}
 }

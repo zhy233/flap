@@ -23,6 +23,7 @@ import (
 	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
+	"github.com/mafanr/g"
 	"github.com/mafanr/meq/proto"
 	"go.uber.org/zap"
 )
@@ -92,7 +93,7 @@ func (f *FdbStore) Init() {
 						return
 					})
 					if err != nil {
-						L.Info("put normal count error", zap.Error(err))
+						g.L.Info("put normal count error", zap.Error(err))
 						continue
 					}
 					normalTopicCount = make(map[string]int)
@@ -131,7 +132,7 @@ func (f *FdbStore) Init() {
 						return
 					})
 					if err != nil {
-						L.Info("put chat count error", zap.Error(err))
+						g.L.Info("put chat count error", zap.Error(err))
 						continue
 					}
 					chatTopicCount = make(map[string]int)
@@ -211,7 +212,7 @@ func (f *FdbStore) Query(t []byte, count int, offset []byte, acked bool) []*prot
 	})
 
 	if err != nil {
-		L.Info("get messsage error", zap.Error(err))
+		g.L.Info("get messsage error", zap.Error(err))
 	}
 
 	return msgs
@@ -233,7 +234,7 @@ func (f *FdbStore) UnreadCount(topic []byte, user []byte) int {
 		k := d.chatroomSP.Pack(tuple.Tuple{topic, user})
 		v, err := getK(d.db, k)
 		if err != nil {
-			L.Info("unread count error", zap.Error(err), zap.ByteString("topic", topic), zap.ByteString("user", user))
+			g.L.Info("unread count error", zap.Error(err), zap.ByteString("topic", topic), zap.ByteString("user", user))
 			count = 0
 		} else {
 			if len(v) == 4 {
@@ -337,7 +338,7 @@ func (f *FdbStore) GetChatUsers(t []byte) [][]byte {
 		return
 	})
 	if err != nil {
-		L.Info("put chat count error", zap.Error(err))
+		g.L.Info("put chat count error", zap.Error(err))
 	}
 	return users
 }
@@ -373,7 +374,7 @@ func put(d *database, msgs []*proto.PubMsg) {
 		return
 	})
 	if err != nil {
-		L.Info("put messsage error", zap.Error(err))
+		g.L.Info("put messsage error", zap.Error(err))
 	}
 }
 
@@ -382,7 +383,7 @@ func (f *FdbStore) process(i int) {
 	db := fdb.MustOpenDefault()
 	dir, err := directory.CreateOrOpen(db, []string{f.bk.conf.Store.FDB.Namespace}, nil)
 	if err != nil {
-		L.Fatal("init fdb(foundationDB) error", zap.Error(err))
+		g.L.Fatal("init fdb(foundationDB) error", zap.Error(err))
 	}
 	msgsp := dir.Sub("messages")
 	normalCountSP := dir.Sub("msg-count")
@@ -465,7 +466,7 @@ func ack(d *database, acks []proto.Ack) {
 		return
 	})
 	if err != nil {
-		L.Info("put messsage error", zap.Error(err))
+		g.L.Info("put messsage error", zap.Error(err))
 	}
 }
 
@@ -478,7 +479,7 @@ func del(d *database, msgs []*proto.PubMsg) {
 		return
 	})
 	if err != nil {
-		L.Info("del messsage error", zap.Error(err))
+		g.L.Info("del messsage error", zap.Error(err))
 	}
 }
 
@@ -574,7 +575,7 @@ func delKey(tor fdb.Transactor, k fdb.Key) error {
 		return
 	})
 	if err != nil {
-		L.Info("del key error", zap.Error(err))
+		g.L.Info("del key error", zap.Error(err))
 	}
 
 	return err

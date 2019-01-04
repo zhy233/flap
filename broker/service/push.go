@@ -18,6 +18,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/mafanr/g"
 	"github.com/mafanr/meq/proto"
 	"github.com/mafanr/meq/proto/mqtt"
 )
@@ -39,7 +40,7 @@ func publishOnline(from uint64, bk *Broker, msgs []*proto.PubMsg, broadcast bool
 		}
 
 		if err != nil {
-			L.Info("Subtrie lookup error", zap.Error(err), zap.String("topic", t))
+			g.L.Info("Subtrie lookup error", zap.Error(err), zap.String("topic", t))
 			continue
 		}
 
@@ -97,7 +98,7 @@ func publishOne(conn net.Conn, ms []*proto.PubMsg) error {
 func notifyOnline(bk *Broker, topic []byte, m []byte) {
 	sesses, err := bk.subtrie.LookupExactly(topic)
 	if err != nil {
-		L.Info("Subtrie lookup error", zap.Error(err), zap.ByteString("topic", topic))
+		g.L.Info("Subtrie lookup error", zap.Error(err), zap.ByteString("topic", topic))
 		return
 	}
 

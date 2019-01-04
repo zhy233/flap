@@ -24,6 +24,7 @@ import (
 
 	"github.com/sunface/talent"
 
+	"github.com/mafanr/g"
 	"github.com/mafanr/meq/proto"
 	"github.com/mafanr/meq/proto/mqtt"
 	"go.uber.org/zap"
@@ -67,7 +68,7 @@ func initClient(cid uint64, conn net.Conn, bk *Broker) *client {
 }
 func (c *client) readLoop(isWs bool) error {
 	defer func() {
-		L.Info("user offline,close read", zap.Uint64("conn_id", c.cid))
+		g.L.Info("user offline,close read", zap.Uint64("conn_id", c.cid))
 		c.closed = true
 		c.closech <- struct{}{}
 		// unsub topics
@@ -84,10 +85,10 @@ func (c *client) readLoop(isWs bool) error {
 					notifyOnline(c.bk, t, proto.PackOfflineNotify(t, c.username))
 				}
 			}
-			L.Info("user offline,unsub topic", zap.Uint64("conn_id", c.cid), zap.String("topic", topic))
+			g.L.Info("user offline,unsub topic", zap.Uint64("conn_id", c.cid), zap.String("topic", topic))
 			err := c.bk.subtrie.UnSubscribe(t, c.cid, c.bk.cluster.peer.name)
 			if err != nil {
-				L.Info("user offline,unsub error", zap.Uint64("conn_id", c.cid), zap.Error(err))
+				g.L.Info("user offline,unsub error", zap.Uint64("conn_id", c.cid), zap.Error(err))
 			}
 
 			//@todo
@@ -96,7 +97,7 @@ func (c *client) readLoop(isWs bool) error {
 			c.bk.cluster.peer.send.GossipBroadcast(submsg)
 		}
 		if err := recover(); err != nil {
-			L.Info("read loop panic:", zap.Error(err.(error)), zap.Stack("stack"))
+			g.L.Info("read loop panic:", zap.Error(err.(error)), zap.Stack("stack"))
 			return
 		}
 	}()
@@ -115,7 +116,7 @@ func (c *client) readLoop(isWs bool) error {
 				t := sub.Topic
 				err := c.bk.subtrie.Subscribe(t, c.cid, c.bk.cluster.peer.name, c.username)
 				if err != nil {
-					L.Info("sub error", zap.Uint64("conn_id", c.cid), zap.ByteString("topic", t))
+					g.L.Info("sub error", zap.Uint64("conn_id", c.cid), zap.ByteString("topic", t))
 					return err
 				}
 				submsg := SubMessage{CLUSTER_SUB, t, c.cid, c.username}
@@ -193,7 +194,7 @@ func (c *client) readLoop(isWs bool) error {
 						// validate msg
 						_, _, _, err := proto.AppidAndSendTag(m.Topic)
 						if err != nil {
-							L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
+							g.L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
 							continue
 						}
 						// update the ttl to a unix time
@@ -222,7 +223,7 @@ func (c *client) readLoop(isWs bool) error {
 					// validate msg
 					_, _, _, err = proto.AppidAndSendTag(m.Topic)
 					if err != nil {
-						L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
+						g.L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
 						continue
 					}
 
@@ -308,7 +309,7 @@ func (c *client) readLoop(isWs bool) error {
 					// validate msg
 					_, _, _, err := proto.AppidAndSendTag(topic)
 					if err != nil {
-						L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
+						g.L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
 						return err
 					}
 
@@ -325,7 +326,7 @@ func (c *client) readLoop(isWs bool) error {
 					// validate msg
 					_, _, _, err := proto.AppidAndSendTag(topic)
 					if err != nil {
-						L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
+						g.L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
 						return err
 					}
 
@@ -403,11 +404,11 @@ func (c *client) readLoop(isWs bool) error {
 
 func (c *client) writeLoop() {
 	defer func() {
-		L.Info("user offline,close write", zap.Uint64("conn_id", c.cid))
+		g.L.Info("user offline,close write", zap.Uint64("conn_id", c.cid))
 		c.closed = true
 		c.conn.Close()
 		if err := recover(); err != nil {
-			L.Warn("panic happend in write loop", zap.Error(err.(error)), zap.Stack("stack"), zap.Uint64("cid", c.cid))
+			g.L.Warn("panic happend in write loop", zap.Error(err.(error)), zap.Stack("stack"), zap.Uint64("cid", c.cid))
 			return
 		}
 	}()
@@ -417,7 +418,7 @@ func (c *client) writeLoop() {
 		case msgs := <-c.msgSender:
 			err := publishOne(c.conn, msgs)
 			if err != nil {
-				L.Info("push one error", zap.Error(err))
+				g.L.Info("push one error", zap.Error(err))
 				return
 			}
 		case <-c.closech:

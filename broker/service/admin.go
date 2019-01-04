@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/mafanr/g"
 	"github.com/sunface/talent"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
@@ -38,7 +39,7 @@ func (ad *Admin) Init(bk *Broker) {
 
 		addr := net.JoinHostPort(ad.bk.conf.Broker.Host, ad.bk.conf.Admin.Port)
 		e.Logger.Fatal(e.Start(addr))
-		L.Info("http listening at :", zap.String("addr", addr))
+		g.L.Info("http listening at :", zap.String("addr", addr))
 	}()
 }
 

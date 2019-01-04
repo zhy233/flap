@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/gob"
 
+	"github.com/mafanr/g"
 	"github.com/weaveworks/mesh"
 	"go.uber.org/zap"
 )
@@ -53,7 +54,7 @@ func (ts *Topics) OnGossip(buf []byte) (delta mesh.GossipData, err error) {
 	var td TopicDatas
 	err = gob.NewDecoder(bytes.NewReader(buf)).Decode(&td)
 	if err != nil {
-		L.Info("on gossip broadcast decode error", zap.Error(err))
+		g.L.Info("on gossip broadcast decode error", zap.Error(err))
 		return
 	}
 

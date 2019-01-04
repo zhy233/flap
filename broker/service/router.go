@@ -17,6 +17,7 @@ import (
 	"encoding/binary"
 	"sync"
 
+	"github.com/mafanr/g"
 	"github.com/mafanr/meq/proto"
 	"github.com/weaveworks/mesh"
 	"go.uber.org/zap"
@@ -58,7 +59,7 @@ func (r *Router) recvRoute(src mesh.PeerName, buf []byte) {
 	case proto.MSG_PUB_BATCH:
 		msgs, err := proto.UnpackPubBatch(buf[5:])
 		if err != nil {
-			L.Warn("route process pub batch error", zap.Error(err))
+			g.L.Warn("route process pub batch error", zap.Error(err))
 			return
 		}
 		c.msgSender <- msgs

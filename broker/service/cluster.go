@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mafanr/g"
 	"github.com/weaveworks/mesh"
 	"go.uber.org/zap"
 )
@@ -52,16 +53,16 @@ func (c *cluster) Init() {
 
 	host, portStr, err := net.SplitHostPort(meshListen)
 	if err != nil {
-		L.Fatal("cluster address invalid", zap.Error(err), zap.String("listen_addr", meshListen))
+		g.L.Fatal("cluster address invalid", zap.Error(err), zap.String("listen_addr", meshListen))
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		L.Fatal("cluter port invalid", zap.Error(err), zap.String("listen_port", portStr))
+		g.L.Fatal("cluter port invalid", zap.Error(err), zap.String("listen_port", portStr))
 	}
 
 	name, err := mesh.PeerNameFromString(hwaddr)
 	if err != nil {
-		L.Fatal("hardware addr invalid", zap.Error(err), zap.String("hardware_addr", hwaddr))
+		g.L.Fatal("hardware addr invalid", zap.Error(err), zap.String("hardware_addr", hwaddr))
 	}
 
 	router, err := mesh.NewRouter(mesh.Config{
@@ -74,13 +75,13 @@ func (c *cluster) Init() {
 	}, name, nickname, mesh.NullOverlay{}, log.New(ioutil.Discard, "", 0))
 
 	if err != nil {
-		L.Fatal("Could not create cluster", zap.Error(err))
+		g.L.Fatal("Could not create cluster", zap.Error(err))
 	}
 
 	peer := newPeer(name, c.bk)
 	gossip, err := router.NewGossip(channel, peer)
 	if err != nil {
-		L.Fatal("Could not create cluster gossip", zap.Error(err))
+		g.L.Fatal("Could not create cluster gossip", zap.Error(err))
 	}
 	peer.register(gossip)
 	c.peer = peer
@@ -90,27 +91,27 @@ func (c *cluster) Init() {
 	if ok {
 		fmt.Println("init mem cluster-channel")
 		ms.pn = name
-		g, err := router.NewGossip("mem-store", ms)
+		g1, err := router.NewGossip("mem-store", ms)
 		if err != nil {
-			L.Fatal("Could not create cluster gossip", zap.Error(err))
+			g.L.Fatal("Could not create cluster gossip", zap.Error(err))
 		}
-		ms.register(g)
+		ms.register(g1)
 	}
 
 	// start topics sync
 	// c.bk.topics.pn = name
 	// t, err := router.NewGossip("topics", c.bk.topics)
 	// if err != nil {
-	// 	L.Fatal("Could not create cluster gossip", zap.Error(err))
+	// 	g.L.Fatal("Could not create cluster gossip", zap.Error(err))
 	// }
 	// c.bk.topics.register(t)
 
 	go func() {
-		L.Debug("cluster starting", zap.String("listen_addr", meshListen))
+		g.L.Debug("cluster starting", zap.String("listen_addr", meshListen))
 		router.Start()
 	}()
 	defer func() {
-		L.Debug("cluster stopping", zap.String("listen_addr", meshListen))
+		g.L.Debug("cluster stopping", zap.String("listen_addr", meshListen))
 		router.Stop()
 	}()
 
@@ -208,7 +209,7 @@ func (p *peer) OnGossipBroadcast(src mesh.PeerName, buf []byte) (received mesh.G
 	var msg SubMessage
 	err = gob.NewDecoder(bytes.NewReader(buf)).Decode(&msg)
 	if err != nil {
-		L.Info("on gossip broadcast decode error", zap.Error(err))
+		g.L.Info("on gossip broadcast decode error", zap.Error(err))
 		return
 	}
 
@@ -245,7 +246,7 @@ func (p *peer) OnGossipUnicast(src mesh.PeerName, buf []byte) error {
 		set := NewSubTrie()
 		err := gob.NewDecoder(bytes.NewReader(buf[5:])).Decode(&set)
 		if err != nil {
-			L.Info("on gossip decode error", zap.Error(err))
+			g.L.Info("on gossip decode error", zap.Error(err))
 			return err
 		}
 

@@ -26,6 +26,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bwmarrin/snowflake"
+	"github.com/mafanr/g"
 	"github.com/mafanr/meq/proto/websocket"
 	"github.com/sunface/talent"
 	"go.uber.org/zap"
@@ -41,7 +42,6 @@ type Broker struct {
 
 	store   Storage
 	router  *Router
-	timer   *Timer
 	cluster *cluster
 
 	subtrie   *SubTrie
@@ -62,8 +62,8 @@ func NewBroker(path string) *Broker {
 	}
 	// init base config
 	b.conf = initConfig(path)
-	InitLogger(b.conf.Common.LogPath, b.conf.Common.LogLevel, b.conf.Common.IsDebug)
-	L.Info("base configuration loaded")
+	g.InitLogger(b.conf.Common.LogLevel)
+	g.L.Info("base configuration loaded")
 
 	return b
 }
@@ -110,12 +110,6 @@ func (b *Broker) Start() {
 	}
 	b.router.Init()
 
-	// init timer
-	b.timer = &Timer{
-		bk: b,
-	}
-	b.timer.Init()
-
 	// init messsage id generator
 	StartIDGenerator(b)
 
@@ -133,9 +127,8 @@ func (b *Broker) Shutdown() {
 	b.cluster.Close()
 	b.store.Close()
 	b.router.Close()
-	b.timer.Close()
 
-	L.Sync()
+	g.L.Sync()
 	b.wg.Wait()
 }
 
@@ -148,14 +141,14 @@ func (b *Broker) Accept() {
 		conn, err := b.listener.Accept()
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
-				L.Error("Temporary Client Accept Error ", zap.Error(err))
+				g.L.Error("Temporary Client Accept Error ", zap.Error(err))
 				time.Sleep(tmpDelay)
 				tmpDelay *= 2
 				if tmpDelay > ACCEPT_MAX_SLEEP {
 					tmpDelay = ACCEPT_MAX_SLEEP
 				}
 			} else if b.running {
-				L.Error("Client Accept Error", zap.Error(err))
+				g.L.Error("Client Accept Error", zap.Error(err))
 			}
 			continue
 		}
@@ -171,7 +164,7 @@ func (b *Broker) process(conn net.Conn, id uint64, isWs bool) {
 		delete(b.clients, id)
 		b.Unlock()
 		conn.Close()
-		L.Info("client closed", zap.Uint64("conn_id", id))
+		g.L.Info("client closed", zap.Uint64("conn_id", id))
 	}()
 
 	cli := initClient(id, conn, b)
@@ -186,13 +179,13 @@ func (b *Broker) process(conn net.Conn, id uint64, isWs bool) {
 		return
 	}
 
-	L.Info("new user online", zap.Uint64("conn_id", id), zap.String("username", string(cli.username)), zap.String("ip", conn.RemoteAddr().String()))
+	g.L.Info("new user online", zap.Uint64("conn_id", id), zap.String("username", string(cli.username)), zap.String("ip", conn.RemoteAddr().String()))
 
 	go cli.writeLoop()
 	err = cli.readLoop(isWs)
 	if err != nil {
 		if !talent.IsEOF(err) {
-			L.Info("client read loop error", zap.Uint64("cid", cli.cid), zap.Error(err))
+			g.L.Info("client read loop error", zap.Uint64("cid", cli.cid), zap.Error(err))
 		}
 	}
 }
@@ -201,11 +194,11 @@ func (b *Broker) startTcp() {
 	addr := net.JoinHostPort(b.conf.Broker.Host, b.conf.Broker.TcpPort)
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		L.Fatal("Fatal error when listening tcp", zap.Error(err), zap.String("addr", addr))
+		g.L.Fatal("Fatal error when listening tcp", zap.Error(err), zap.String("addr", addr))
 	}
 	b.listener = l
 
-	L.Info("tcp listening at :", zap.String("addr", addr))
+	g.L.Info("tcp listening at :", zap.String("addr", addr))
 	go b.Accept()
 }
 
@@ -213,7 +206,7 @@ func (b *Broker) startWS() {
 	addr := net.JoinHostPort(b.conf.Broker.Host, b.conf.Broker.WsPort)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
-		L.Fatal("Fatal error when listening websocket", zap.Error(err), zap.String("addr", addr))
+		g.L.Fatal("Fatal error when listening websocket", zap.Error(err), zap.String("addr", addr))
 	}
 
 	mux := http.NewServeMux()
@@ -225,5 +218,5 @@ func (b *Broker) startWS() {
 	})
 
 	go http.Serve(lis, mux)
-	L.Info("websocket listening at :", zap.String("addr", addr))
+	g.L.Info("websocket listening at :", zap.String("addr", addr))
 }
