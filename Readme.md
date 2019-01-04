@@ -13,7 +13,7 @@ Our goal is to be the best messaging platform in the world.
 </p>
 
 ### Project status
-Still in active developing, 2018-08-16
+Still in active developing, 2019-01-03
 
 
 Example of Chatting room

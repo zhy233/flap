@@ -14,7 +14,7 @@ MeQ的目标是成为世界上最好的消息平台，就像手机中的Iphone�
 </p>
 
 ### Project status
-Still in active developing, 2018-08-16
+Still in active developing, 2019-01-03
 
 聊天室例子
 ------------
