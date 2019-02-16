@@ -8,7 +8,7 @@ import (
 	meq "github.com/mafanr/meq/sdks/go-meq"
 )
 
-var topic = "/1234567890/22/chat/001"
+var topic = "/1234567890/1/001"
 var host = "localhost:"
 
 var op = flag.String("op", "", "")

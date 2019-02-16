@@ -41,41 +41,36 @@ func TestParseTopic(t *testing.T) {
 
 func TestAppidAndSendTag(t *testing.T) {
 	topic := []byte("/")
-	_, _, _, err := AppidAndSendTag(topic)
+	_, _, err := AppidAndTopicType(topic)
 	assert.Error(t, err)
 
 	topic = []byte("/a")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 
 	topic = []byte("/a/b")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 
 	topic = []byte("/a/b/c")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 
 	topic = []byte("/1234567890/b/c")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 
-	topic = []byte("/1234567890/1/c")
-	_, _, _, err = AppidAndSendTag(topic)
-	assert.Error(t, err)
-
-	topic = []byte("/1234567890/12/c")
-	appid, sendtag, typetag, err := AppidAndSendTag(topic)
+	topic = []byte("/1234567890/2/c")
+	appid, typetag, err := AppidAndTopicType(topic)
 	assert.EqualValues(t, []byte("1234567890"), appid)
-	assert.EqualValues(t, '1', sendtag)
 	assert.EqualValues(t, '2', typetag)
 
 	topic = []byte("/1234567890/123/c")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 
 	topic = []byte("/1234567890/1/")
-	_, _, _, err = AppidAndSendTag(topic)
+	_, _, err = AppidAndTopicType(topic)
 	assert.Error(t, err)
 }
 

@@ -33,11 +33,8 @@ func publishOnline(from uint64, bk *Broker, msgs []*proto.PubMsg, broadcast bool
 	for t, msgs := range topics {
 		var sesses []TopicSub
 		var err error
-		if broadcast {
-			sesses, err = bk.subtrie.Lookup([]byte(t))
-		} else {
-			sesses, err = bk.subtrie.LookupExactly([]byte(t))
-		}
+
+		sesses, err = bk.subtrie.Lookup([]byte(t))
 
 		if err != nil {
 			g.L.Info("Subtrie lookup error", zap.Error(err), zap.String("topic", t))
@@ -96,7 +93,7 @@ func publishOne(conn net.Conn, ms []*proto.PubMsg) error {
 }
 
 func notifyOnline(bk *Broker, topic []byte, m []byte) {
-	sesses, err := bk.subtrie.LookupExactly(topic)
+	sesses, err := bk.subtrie.Lookup(topic)
 	if err != nil {
 		g.L.Info("Subtrie lookup error", zap.Error(err), zap.ByteString("topic", topic))
 		return

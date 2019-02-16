@@ -192,7 +192,7 @@ func (c *client) readLoop(isWs bool) error {
 						m.ID = c.bk.idgen.Generate().Bytes()
 						m.Sender = c.username
 						// validate msg
-						_, _, _, err := proto.AppidAndSendTag(m.Topic)
+						_, _, err := proto.AppidAndTopicType(m.Topic)
 						if err != nil {
 							g.L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
 							continue
@@ -221,7 +221,7 @@ func (c *client) readLoop(isWs bool) error {
 						return err
 					}
 					// validate msg
-					_, _, _, err = proto.AppidAndSendTag(m.Topic)
+					_, _, err = proto.AppidAndTopicType(m.Topic)
 					if err != nil {
 						g.L.Info("pub msg topic invalid", zap.Error(err), zap.ByteString("topic", m.Topic))
 						continue
@@ -307,7 +307,7 @@ func (c *client) readLoop(isWs bool) error {
 				case proto.MSG_JOIN_CHAT:
 					topic := proto.UnpackJoinChat(packet.Payload[1:])
 					// validate msg
-					_, _, _, err := proto.AppidAndSendTag(topic)
+					_, _, err := proto.AppidAndTopicType(topic)
 					if err != nil {
 						g.L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
 						return err
@@ -324,7 +324,7 @@ func (c *client) readLoop(isWs bool) error {
 				case proto.MSG_LEAVE_CHAT:
 					topic := proto.UnpackLeaveChat(packet.Payload[1:])
 					// validate msg
-					_, _, _, err := proto.AppidAndSendTag(topic)
+					_, _, err := proto.AppidAndTopicType(topic)
 					if err != nil {
 						g.L.Info("leave chat topic invalid", zap.Error(err), zap.ByteString("topic", topic))
 						return err

@@ -20,10 +20,10 @@ import (
 
 	"github.com/mafanr/g"
 	"github.com/sunface/talent"
+	"go.uber.org/zap"
 
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/labstack/echo"
-	"go.uber.org/zap"
 )
 
 type Admin struct {

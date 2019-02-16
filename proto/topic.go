@@ -31,9 +31,6 @@ const (
 	TopicSep      = '/'
 	TopicWildcard = '+'
 
-	TopicSendOne = '1'
-	TopicSendAll = '2'
-
 	TopicTypeNormal = '1'
 	TopicTypeChat   = '2'
 
@@ -109,7 +106,7 @@ func ParseTopic(t []byte, exactly bool) ([]uint32, error) {
 	return tids, nil
 }
 
-func AppidAndSendTag(topic []byte) ([]byte, byte, byte, error) {
+func AppidAndTopicType(topic []byte) ([]byte, byte, error) {
 	i2 := 0
 	i3 := 0
 
@@ -117,7 +114,7 @@ func AppidAndSendTag(topic []byte) ([]byte, byte, byte, error) {
 		if i == 0 {
 			// first byte must be topic sep
 			if b != TopicSep {
-				return nil, 0, 0, errors.New("first byte must  be topic sperator")
+				return nil, 0, errors.New("first byte must  be topic sperator")
 			}
 			continue
 		}
@@ -133,32 +130,27 @@ func AppidAndSendTag(topic []byte) ([]byte, byte, byte, error) {
 
 	// last byte cant be topic sep
 	if i3 == len(topic)-1 {
-		return nil, 0, 0, errors.New("last byte must not be topic sperator")
+		return nil, 0, errors.New("last byte must not be topic sperator")
 	}
 
 	// sendtag's length must be 2
-	if i3 != i2+3 {
-		return nil, 0, 0, errors.New("invalid topic tags")
+	if i3 != i2+2 {
+		return nil, 0, errors.New("invalid topic tags")
 	}
 
 	// appid's length must be AppIdLen
 	appid := topic[1:i2]
 	if len(appid) != AppIdLen {
-		return nil, 0, 0, errors.New("invalid topic appid")
+		return nil, 0, errors.New("invalid topic appid")
 	}
 
-	sendtag := topic[i2+1]
-	if sendtag != TopicSendOne && sendtag != TopicSendAll {
-		return nil, 0, 0, errors.New("invalid topic send tag")
+	typetag := topic[i2+1]
+	if typetag != TopicTypeNormal && typetag != TopicTypeChat {
+		return nil, 0, errors.New("invalid topic type tag")
 	}
-
-	typetag := topic[i2+2]
-	if sendtag != TopicTypeNormal && sendtag != TopicTypeChat {
-		return nil, 0, 0, errors.New("invalid topic type tag")
-	}
-	return appid, sendtag, typetag, nil
+	return appid, typetag, nil
 }
 
 func GetTopicType(topic []byte) byte {
-	return topic[13]
+	return topic[12]
 }

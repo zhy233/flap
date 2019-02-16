@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-	"math/rand"
 	"sync"
 
 	"github.com/mafanr/meq/proto"
@@ -153,78 +152,11 @@ func (st *SubTrie) UnSubscribe(topic []byte, cid uint64, addr mesh.PeerName) err
 	return nil
 }
 
-//@todo
-// add query cache for heavy lookup
 func (st *SubTrie) Lookup(topic []byte) ([]TopicSub, error) {
-	t := string(topic)
-
-	tids, err := proto.ParseTopic(topic, false)
-	if err != nil {
-		return nil, err
-	}
-
-	_, sendtag, _, err := proto.AppidAndSendTag(topic)
-	if err != nil {
-		return nil, err
-	}
-	//@todo validate the appid
-
-	var subs []TopicSub
-	sublock.RLock()
-	cl, ok := subCache[t]
-	sublock.RUnlock()
-	if ok {
-		subs = make([]TopicSub, 0, cl+100)
-	} else {
-		subs = make([]TopicSub, 0, 10)
-	}
-
-	rootid := tids[0]
-
-	sublock.RLock()
-	root, ok := st.Roots[rootid]
-	sublock.RUnlock()
-	if !ok {
-		return nil, nil
-	}
-
-	// 所有比target长的都应该收到
-	// target中的通配符'+'可以匹配任何tid
-	// 找到所有路线的最后一个node节点
-
-	var lastNodes []*Node
-	if len(tids) == 1 {
-		lastNodes = append(lastNodes, root)
-	} else {
-		st.findLastNodes(root, tids[1:], &lastNodes)
-	}
-
-	// 找到lastNode的所有子节点
-	sublock.RLock()
-	for _, last := range lastNodes {
-		st.findSubs(last, &subs, sendtag)
-	}
-	sublock.RUnlock()
-
-	//@todo
-	//Remove duplicate elements from the list.
-	if len(subs) >= subCacheLen {
-		sublock.Lock()
-		subCache[string(topic)] = len(subs)
-		sublock.Unlock()
-	}
-	return subs, nil
-}
-
-func (st *SubTrie) LookupExactly(topic []byte) ([]TopicSub, error) {
 	tids, err := proto.ParseTopic(topic, true)
 	if err != nil {
 		return nil, err
 	}
-	_, sendtag, _, err := proto.AppidAndSendTag(topic)
-	if err != nil {
-		return nil, err
-	}
 	//@todo validate the appid
 
 	rootid := tids[0]
@@ -236,9 +168,6 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]TopicSub, error) {
 		return nil, nil
 	}
 
-	// 所有比target长的都应该收到
-	// target中的通配符'+'可以匹配任何tid
-	// 找到所有路线的最后一个node节点
 	lastNode := root
 	for _, tid := range tids[1:] {
 		// 任何一个node匹配不到，则认为完全无法匹配
@@ -255,17 +184,9 @@ func (st *SubTrie) LookupExactly(topic []byte) ([]TopicSub, error) {
 	}
 
 	var subs []TopicSub
-	// optimize the random performance
-	if sendtag == proto.TopicSendAll {
-		for _, sub := range lastNode.Subs {
-			subs = append(subs, TopicSub{lastNode.Topic, sub})
-		}
-	} else {
-		if len(lastNode.Subs) == 1 {
-			subs = append(subs, TopicSub{lastNode.Topic, lastNode.Subs[0]})
-		} else {
-			subs = append(subs, TopicSub{lastNode.Topic, lastNode.Subs[rand.Intn(len(lastNode.Subs))]})
-		}
+
+	for _, sub := range lastNode.Subs {
+		subs = append(subs, TopicSub{lastNode.Topic, sub})
 	}
 
 	return subs, nil
@@ -309,39 +230,6 @@ func (st *SubTrie) GetPrensence(topic []byte) [][]byte {
 		res = append(res, sub.UserName)
 	}
 	return res
-}
-
-func (st *SubTrie) findSubs(n *Node, subs *[]TopicSub, sendtag byte) {
-	// manually realloc the slice
-	if cap(*subs) == len(*subs) {
-		temp := make([]TopicSub, len(*subs), cap(*subs)*6)
-		copy(temp, *subs)
-		*subs = temp
-	}
-
-	if len(n.Subs) > 0 {
-		// optimize the random performance
-		if sendtag == proto.TopicSendOne {
-			var sub Sub
-			if len(n.Subs) == 1 {
-				sub = n.Subs[0]
-			} else {
-				sub = n.Subs[rand.Intn(len(n.Subs))]
-			}
-			*subs = append(*subs, TopicSub{n.Topic, sub})
-		} else {
-			for _, sub := range n.Subs {
-				*subs = append(*subs, TopicSub{n.Topic, sub})
-			}
-		}
-	}
-
-	if len(n.Children) == 0 {
-		return
-	}
-	for _, child := range n.Children {
-		st.findSubs(child, subs, sendtag)
-	}
 }
 
 func (st *SubTrie) findLastNodes(n *Node, tids []uint32, nodes *[]*Node) {
