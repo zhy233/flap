@@ -50,9 +50,6 @@ http://localhost:8080,在第一个页面输入用户名A,第二个页面输入�
 Broker默认使用的是内存存储方式，如果你想使用持久化存储，请安装[foundationDB server V5.1.7](https://www.foundationdb.org/download/),然后将broker.yaml中的store.engine从memory修改为fdb即可
 
 
-当前状态
-------------
-目前项目的版本号是Alpha V0.5.0，官方网站、文档以及一个聊天室Demo很快将与大家见面(2018年6月30日之前)
 
 功能特性
 ------------
@@ -100,13 +97,7 @@ Broker默认使用的是内存存储方式，如果你想使用持久化存储�
 ------------
 - <a href="https://github.com/sunface" target="_blank">Sunface</a> 
 - <a href="https://github.com/shaocongcong" target="_blank">Cong</a>
-- <a href="https://github.com/niyuelin1990" target="_blank">Niyuelin1990</a>
 
-性能(初测)
--------------
-以下数据是在我的Mac上，运行了两台节点组成集群，存储模式采用了内存，同时运行了服务器和客户端，因此数据还不够极致
-- 5个客户端同时生产消息：每秒270万
-- 5个客户端同时消费： 每秒200万
 
 
 

@@ -1,19 +1,18 @@
 
 MeQ [mi:kju]
 ------------
-A modern messaging platform for Message Push、IM、Group Chatting、IoT etc, based on [MQTT protocol](https://github.com/mafanr/meq/tree/master/proto/mqtt). MeQ is written in pure go and standard library,nearly no messy dependencies. so you can easily deploy a standalone binary in linux、unix、macos、windows.
+A modern  platform for Message Push、Instant Messaging etc, based on [MQTT protocol](https://github.com/mafanr/meq/tree/master/proto/mqtt). 
 
-Our goal is to be the best messaging platform in the world.
+MeQ is written in pure go. Our goal is to be the best messaging platform in the world.
 
 - Homepage: http://meq.io
 - <a href="ReadmeCn.md">中文Readme</a>
 <p align="left">
     <a href="http://meq.io">
-     <img  width="200" src="./logo.png"></a>
 </p>
 
 ### Project status
-Still in active developing, 2019-01-03
+Still under  developing, 2019-01-03
 
 
 Example of Chatting room
@@ -48,24 +47,21 @@ Open your browser and accsess http://localhost:8080 in two seperate pages,in one
 ### More(persistent storage)
 Broker uses memory storage by default, if you want to use persistent storage, please install [foundationDB server V5.1.7](https://www.foundationdb.org/download/) , and then edit the broker.yaml,change store.engine from memory to fdb.
 
-
-Now Status
-------------
-The version is Alpha V0.5.0. The website,documents and a group chat demo will soon be possible to access(before 2018.6.30)
-
 Features
 ------------
 ### Extremely performant
 - Written in go, as fast as c/c++ network programing
 - Zero allocation and copy
 - Hot path and algorithm optimized
-### Easy and efficient
+
+### Easy
 - Easy to study and use
-- Efficient when you need to develop on meq,because the nice design and code
 - Detailed docs and examples
+
 ### Robust
 - Robust is one of our most important goal throughout the developing
-- Default message persistent,also you can implement the persistent inteface in your way.
+- Default message persistent,also you can implement the persistent inteface in your way
+
 ### Various scenario supported
 - Message push
 - Group chatting
@@ -99,13 +95,7 @@ Contributors(Sort by contribution)
 ------------
 - <a href="https://github.com/sunface" target="_blank">Sunface</a> 
 - <a href="https://github.com/shaocongcong" target="_blank">Cong</a>
-- <a href="https://github.com/niyuelin1990" target="_blank">Niyuelin1990</a>
 
-Performance(early stage)
--------------
-In this benchmark, I use the memory engine, all is done in my macbook pro laptop.
-- A client with 5 goroutine can publish 2700K messages to meq per second
-- A client with 5 goroutine can consume 2000K messages from meq per second
 
 
 
