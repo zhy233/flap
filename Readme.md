@@ -1,7 +1,7 @@
 
 Im.Dev
 ------------
-An modern Instant Messaging(IM) platform for easily Developing your own messaging system, based on MQTT protocol.
+An modern Instant Messaging(IM) platform for Developers to easily build their own messaging system, based on MQTT protocol.
 
 Im.Dev is written in pure go. Our goal is to be the best messaging platform in the world.
 
