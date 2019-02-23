@@ -5,9 +5,9 @@ An modern Instant Messaging(IM) platform for easily Developing your own messagin
 
 Im.Dev is written in pure go. Our goal is to be the best messaging platform in the world.
 
-- Homepage: http://im.dev/lab
+- Homepage: http://lab.im.dev
 <p align="left">
-    <a href="http://im.dev/lab">
+    <a href="http://lab.im.dev">
 </p>
 
 ### Project status
