@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/mafanr/meq/cmd"
+import "github.com/imdevlab/im.dev/cmd"
 
 func main() {
 	cmd.Execute()

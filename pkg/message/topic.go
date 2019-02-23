@@ -16,7 +16,7 @@ package message
 import (
 	"errors"
 
-	"github.com/sunface/talent"
+	"github.com/imdevlab/g/utils"
 )
 
 /* A topic must be like these
@@ -38,7 +38,7 @@ const (
 )
 
 var (
-	WildCardHash = talent.MurMurHash([]byte{TopicWildcard})
+	WildCardHash = utils.MurMurHash([]byte{TopicWildcard})
 )
 
 func ParseTopic(t []byte, exactly bool) ([]uint32, error) {
@@ -74,13 +74,13 @@ func ParseTopic(t []byte, exactly bool) ([]uint32, error) {
 			err = errors.New("topic invalid,maybe you cant use like '//a' ")
 			return nil, err
 		}
-		tid := talent.MurMurHash(buf)
+		tid := utils.MurMurHash(buf)
 		tids = append(tids, tid)
 		buf = buf[:0]
 	}
 
 	if len(buf) != 0 {
-		tid := talent.MurMurHash(buf)
+		tid := utils.MurMurHash(buf)
 		tids = append(tids, tid)
 	}
 

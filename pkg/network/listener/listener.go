@@ -190,6 +190,8 @@ func (m *Listener) serve(c net.Conn, donec <-chan struct{}, wg *sync.WaitGroup) 
 		}
 	}
 
+	fmt.Println("not matched!")
+
 	_ = c.Close()
 	err := ErrNotMatched{c: c}
 	if !m.handleErr(err) {

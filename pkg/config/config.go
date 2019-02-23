@@ -22,8 +22,8 @@ type Config struct {
 	}
 
 	Cluster struct {
-		Listen    string
-		Advertise string
+		Listen string
+		Seeds  []string
 	}
 }
 

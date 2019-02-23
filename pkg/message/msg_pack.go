@@ -30,7 +30,7 @@ func PackMsg(m *PubMsg) []byte {
 	tsl := len(m.Timestamp)
 	// header
 	msg := make([]byte, 24+ml+tl+pl+fl+rml+tsl)
-	msg[0] = MSG_PUB_ONE
+	msg[0] = PUB_ONE
 	// msgid
 	binary.LittleEndian.PutUint16(msg[1:3], uint16(ml))
 	copy(msg[3:3+ml], m.ID)
@@ -111,7 +111,7 @@ func PackSub(topic []byte) []byte {
 	// 设置header
 	binary.LittleEndian.PutUint32(msg[:4], 1+2+uint32(tl))
 	// 设置control flag
-	msg[4] = MSG_SUB
+	msg[4] = SUB
 
 	// topic len
 	binary.LittleEndian.PutUint16(msg[5:7], uint16(tl))
@@ -135,7 +135,7 @@ func PackSubAck(t []byte) []byte {
 	tl := uint32(len(t))
 	msg := make([]byte, 4+1+tl)
 	binary.LittleEndian.PutUint32(msg[:4], 1+tl)
-	msg[4] = MSG_SUBACK
+	msg[4] = SUBACK
 
 	copy(msg[5:], t)
 
@@ -155,7 +155,7 @@ func PackMarkRead(topic []byte, msgids [][]byte) []byte {
 	body := make([]byte, total)
 
 	//command
-	body[0] = MSG_MARK_READ
+	body[0] = MARK_READ
 	//topic
 	binary.LittleEndian.PutUint16(body[1:3], uint16(tl))
 	copy(body[3:3+tl], topic)
@@ -248,7 +248,7 @@ func UnpackAck(b []byte) []Ack {
 func PackPing() []byte {
 	msg := make([]byte, 5)
 	binary.LittleEndian.PutUint32(msg[:4], 1)
-	msg[4] = MSG_PING
+	msg[4] = PING
 
 	return msg
 }
@@ -256,28 +256,28 @@ func PackPing() []byte {
 func PackPong() []byte {
 	msg := make([]byte, 5)
 	binary.LittleEndian.PutUint32(msg[:4], 1)
-	msg[4] = MSG_PONG
+	msg[4] = PONG
 	return msg
 }
 
 func PackConnect() []byte {
 	msg := make([]byte, 5)
 	binary.LittleEndian.PutUint32(msg[:4], 1)
-	msg[4] = MSG_CONNECT
+	msg[4] = CONNECT
 	return msg
 }
 
 func PackConnectOK() []byte {
 	msg := make([]byte, 5)
 	binary.LittleEndian.PutUint32(msg[:4], 1)
-	msg[4] = MSG_CONNECT_OK
+	msg[4] = CONNECT_OK
 
 	return msg
 }
 
 func PackMsgCount(count int) []byte {
 	msg := make([]byte, 1+4)
-	msg[0] = MSG_COUNT
+	msg[0] = COUNT
 	binary.LittleEndian.PutUint32(msg[1:5], uint32(count))
 	return msg
 }
@@ -289,7 +289,7 @@ func UnpackMsgCount(b []byte) int {
 
 func PackPullMsg(count int, msgid []byte) []byte {
 	msg := make([]byte, 1+2+len(msgid))
-	msg[0] = MSG_PULL
+	msg[0] = PULL
 	binary.LittleEndian.PutUint16(msg[1:3], uint16(count))
 	copy(msg[3:3+len(msgid)], msgid)
 	return msg
@@ -456,7 +456,7 @@ func UnpackPubBatch(m []byte) ([]*PubMsg, error) {
 
 func PackReduceCount(n int) []byte {
 	m := make([]byte, 1+2)
-	m[0] = MSG_REDUCE_COUNT
+	m[0] = REDUCE_COUNT
 
 	binary.LittleEndian.PutUint16(m[1:3], uint16(n))
 
@@ -472,7 +472,7 @@ func UnpackReduceCount(b []byte) int {
 func PackPresence(topic []byte) {
 	tl := uint64(len(topic))
 	m := make([]byte, 1+tl)
-	m[0] = MSG_PRESENCE_ALL
+	m[0] = PRESENCE_ALL
 	copy(m[1:1+tl], topic)
 }
 
@@ -483,7 +483,7 @@ func UnpackPresence(b []byte) []byte {
 func PackAllChatUsers(topic []byte) {
 	tl := uint64(len(topic))
 	m := make([]byte, 1+tl)
-	m[0] = MSG_ALL_CHAT_USERS
+	m[0] = ALL_CHAT_USERS
 	copy(m[1:1+tl], topic)
 }
 
@@ -528,7 +528,7 @@ func UnpackPresenceUsers(b []byte) [][]byte {
 
 func PackJoinChat(topic []byte) []byte {
 	m := make([]byte, 1+len(topic))
-	m[0] = MSG_JOIN_CHAT
+	m[0] = JOIN_CHAT
 
 	copy(m[1:], topic)
 	return m
@@ -542,7 +542,7 @@ func PackJoinChatNotify(topic []byte, user []byte) []byte {
 	tl := uint16(len(topic))
 	ul := uint16(len(user))
 	m := make([]byte, 1+2+tl+ul)
-	m[0] = MSG_JOIN_CHAT
+	m[0] = JOIN_CHAT
 
 	binary.LittleEndian.PutUint16(m[1:3], tl)
 	copy(m[3:3+tl], topic)
@@ -565,7 +565,7 @@ func PackLeaveChatNotify(topic []byte, user []byte) []byte {
 	tl := uint16(len(topic))
 	ul := uint16(len(user))
 	m := make([]byte, 1+2+tl+ul)
-	m[0] = MSG_LEAVE_CHAT
+	m[0] = LEAVE_CHAT
 
 	binary.LittleEndian.PutUint16(m[1:3], tl)
 	copy(m[3:3+tl], topic)
@@ -586,7 +586,7 @@ func UnpackLeaveChatNotify(b []byte) ([]byte, []byte) {
 
 func PackLeaveChat(topic []byte) []byte {
 	m := make([]byte, 1+len(topic))
-	m[0] = MSG_LEAVE_CHAT
+	m[0] = LEAVE_CHAT
 
 	copy(m[1:], topic)
 	return m
@@ -600,7 +600,7 @@ func PackOnlineNotify(topic []byte, user []byte) []byte {
 	tl := uint16(len(topic))
 	ul := uint16(len(user))
 	m := make([]byte, 1+2+tl+ul)
-	m[0] = MSG_PRESENCE_ONLINE
+	m[0] = PRESENCE_ONLINE
 
 	binary.LittleEndian.PutUint16(m[1:3], tl)
 	copy(m[3:3+tl], topic)
@@ -623,7 +623,7 @@ func PackOfflineNotify(topic []byte, user []byte) []byte {
 	tl := uint16(len(topic))
 	ul := uint16(len(user))
 	m := make([]byte, 1+2+tl+ul)
-	m[0] = MSG_PRESENCE_OFFLINE
+	m[0] = PRESENCE_OFFLINE
 
 	binary.LittleEndian.PutUint16(m[1:3], tl)
 	copy(m[3:3+tl], topic)
@@ -646,7 +646,7 @@ func PackRetrieve(topic []byte, msgid []byte) []byte {
 	tl := len(topic)
 	ml := len(msgid)
 	m := make([]byte, 3+tl+ml)
-	m[0] = MSG_RETRIEVE
+	m[0] = RETRIEVE
 	binary.LittleEndian.PutUint16(m[1:3], uint16(tl))
 	copy(m[3:3+tl], topic)
 	copy(m[3+tl:3+tl+ml], msgid)
