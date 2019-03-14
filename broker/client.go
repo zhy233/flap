@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/imdevlab/flap/pkg/message"
+	"github.com/imdevlab/flap/pkg/network/mqtt"
 	"github.com/imdevlab/g"
-	"github.com/imdevlab/im.dev/pkg/message"
-	"github.com/imdevlab/im.dev/pkg/network/mqtt"
 	"go.uber.org/zap"
 )
 

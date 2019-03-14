@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/memberlist"
-	"github.com/imdevlab/im.dev/pkg/config"
+	"github.com/imdevlab/flap/pkg/config"
 )
 
 func (b *Broker) joinCluster() error {

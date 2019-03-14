@@ -9,10 +9,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"github.com/imdevlab/flap/pkg/config"
+	"github.com/imdevlab/flap/pkg/network/listener"
+	"github.com/imdevlab/flap/pkg/network/websocket"
 	"github.com/imdevlab/g"
-	"github.com/imdevlab/im.dev/pkg/config"
-	"github.com/imdevlab/im.dev/pkg/network/listener"
-	"github.com/imdevlab/im.dev/pkg/network/websocket"
 
 	"go.uber.org/zap"
 

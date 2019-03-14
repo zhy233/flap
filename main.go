@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/imdevlab/im.dev/cmd"
+import "github.com/imdevlab/flap/cmd"
 
 func main() {
 	cmd.Execute()

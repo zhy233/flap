@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/imdevlab/im.dev/broker"
+	"github.com/imdevlab/flap/broker"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,7 +41,7 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		broker := broker.New("im.conf")
+		broker := broker.New("flap.conf")
 		go broker.Start()
 
 		chSig := make(chan os.Signal)
