@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cosmos-gg/meq/broker/service"
+	"flap_zhy/broker/service"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -40,7 +40,7 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		broker := service.NewBroker("broker.yaml")
+		broker := service.NewBroker("broker/broker.yaml")
 		go broker.Start()
 
 		chSig := make(chan os.Signal)

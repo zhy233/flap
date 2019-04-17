@@ -5,8 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cosmos-gg/meq/proto"
-	meq "github.com/cosmos-gg/meq/sdks/go-meq"
+	"flap_zhy/proto"
+	meq "flap_zhy/sdks/go-meq"
 )
 
 func pub(conns []*meq.Connection) {

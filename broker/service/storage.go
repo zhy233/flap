@@ -14,7 +14,7 @@
 package service
 
 import (
-	"github.com/cosmos-gg/meq/proto"
+	"flap_zhy/proto"
 )
 
 type Storage interface {

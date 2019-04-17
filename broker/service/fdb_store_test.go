@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"flap_zhy/proto"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
-	"github.com/cosmos-gg/meq/proto"
 	"github.com/stretchr/testify/assert"
 )
 

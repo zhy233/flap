@@ -19,11 +19,11 @@ import (
 	"sync"
 	"time"
 
+	"flap_zhy/proto"
 	"github.com/apple/foundationdb/bindings/go/src/fdb"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/directory"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/subspace"
 	"github.com/apple/foundationdb/bindings/go/src/fdb/tuple"
-	"github.com/cosmos-gg/meq/proto"
 	"go.uber.org/zap"
 )
 

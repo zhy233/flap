@@ -25,8 +25,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"flap_zhy/proto/websocket"
 	"github.com/bwmarrin/snowflake"
-	"github.com/cosmos-gg/meq/proto/websocket"
 	"github.com/labstack/echo"
 	"github.com/sunface/talent"
 	"go.uber.org/zap"

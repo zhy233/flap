@@ -18,8 +18,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/cosmos-gg/meq/proto"
-	"github.com/cosmos-gg/meq/proto/mqtt"
+	"flap_zhy/proto"
+	"flap_zhy/proto/mqtt"
 )
 
 func publishOnline(from uint64, bk *Broker, msgs []*proto.PubMsg, broadcast bool) {

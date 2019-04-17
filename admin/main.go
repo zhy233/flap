@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/cosmos-gg/meq/admin/cmd"
+import "flap_zhy/admin/cmd"
 
 func main() {
 	cmd.Execute()

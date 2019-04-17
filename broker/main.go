@@ -14,7 +14,7 @@
 
 package main
 
-import "github.com/cosmos-gg/meq/broker/cmd"
+import "flap_zhy/broker/cmd"
 
 func main() {
 	cmd.Execute()

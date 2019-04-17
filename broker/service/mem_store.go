@@ -21,7 +21,7 @@ import (
 	"github.com/sunface/talent"
 	"github.com/weaveworks/mesh"
 
-	"github.com/cosmos-gg/meq/proto"
+	"flap_zhy/proto"
 )
 
 type MemStore struct {

@@ -17,8 +17,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/cosmos-gg/meq/proto"
-	"github.com/cosmos-gg/meq/proto/mqtt"
+	"flap_zhy/proto"
+	"flap_zhy/proto/mqtt"
 )
 
 func (c *Connection) Subscribe(topic []byte) error {
